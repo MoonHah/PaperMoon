@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
+.DS_Store
 
 # Virtual environments
 .venv
@@ -12,9 +13,13 @@ wheels/
 
 # Note file
 notes/
+project_direction.md
 
 # Environment variables — never commit real secrets
 .env
+
+# Test cache
+.pytest_cache/
 
 # Guide Folder
 guide/
