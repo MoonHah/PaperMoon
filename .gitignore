@@ -6,6 +6,7 @@ dist/
 wheels/
 *.egg-info
 .DS_Store
+.claude
 
 # Virtual environments
 .venv
@@ -23,3 +24,4 @@ project_direction.md
 
 # Guide Folder
 guide/
+

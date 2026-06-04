@@ -1,13 +1,23 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.api.v1.router import v1_router
 from app.core.config import settings
+from app.services.vector_store import get_vector_store
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    get_vector_store(settings).ensure_collection()
+    yield
 
 
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     debug=settings.debug,
+    lifespan=lifespan,
 )
 
 app.include_router(

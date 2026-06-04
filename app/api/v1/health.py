@@ -5,7 +5,6 @@ from app.core.config import settings
 
 router = APIRouter()    # 创建一个路由对象
 
-
 # =============== HealthResponse =================
 class HealthResponse(BaseModel):
     status: str
