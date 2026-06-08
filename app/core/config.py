@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8008
 
+    # PostgreSQL
+    database_url: str = "postgresql://postgres:postgres@localhost:5432/papermoon"
+
     # Qdrant Vector Database
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "papermoon"
@@ -29,6 +32,23 @@ class Settings(BaseSettings):
 
     # File upload
     max_file_size_mb: int = 10
+
+    # Celery / Redis
+    redis_url: str = "redis://localhost:6379/0"
+
+    # Rate Limiting
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = 60   # max requests per window
+    rate_limit_window: int = 60     # window size in seconds
+
+    # LLM Resilience
+    llm_timeout: float = 30.0
+    llm_max_retries: int = 3
+    embedding_timeout: float = 10.0
+    embedding_max_retries: int = 3
+
+    # File storage — uploaded files saved here for the worker to read
+    storage_path: str = "storage"
 
     # Read .env
     model_config = SettingsConfigDict(

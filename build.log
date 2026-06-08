@@ -1,0 +1,166 @@
+--progress is a global compose flag, better use `docker compose --progress xx build ...
+ Image papermoon-api Building 
+ Image papermoon-worker Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 969B done
+#1 DONE 0.0s
+
+#2 [worker internal] load build definition from Dockerfile
+#2 transferring dockerfile: 350B done
+#2 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 1)
+#2 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 1)
+#2 DONE 0.0s
+
+#3 [worker internal] load metadata for docker.io/library/python:3.12-slim
+#3 ...
+
+#4 [auth] library/python:pull token for registry-1.docker.io
+#4 DONE 0.0s
+
+#5 [worker internal] load metadata for ghcr.io/astral-sh/uv:latest
+#5 DONE 2.3s
+
+#3 [worker internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 3.3s
+
+#6 [worker internal] load .dockerignore
+#6 transferring context: 161B done
+#6 DONE 0.0s
+
+#7 [api] FROM ghcr.io/astral-sh/uv:latest@sha256:b46b03ddfcfbf8f547af7e9eaefdf8a39c8cebcba7c98858d3162bd28cf536f6
+#7 resolve ghcr.io/astral-sh/uv:latest@sha256:b46b03ddfcfbf8f547af7e9eaefdf8a39c8cebcba7c98858d3162bd28cf536f6 0.0s done
+#7 DONE 0.0s
+
+#8 [api stage-0 1/6] FROM docker.io/library/python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203
+#8 resolve docker.io/library/python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203 0.0s done
+#8 DONE 0.0s
+
+#9 [api internal] load build context
+#9 transferring context: 134.66kB 0.0s done
+#9 DONE 0.0s
+
+#10 [api stage-0 3/6] COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+#10 CACHED
+
+#11 [api stage-0 2/6] WORKDIR /app
+#11 CACHED
+
+#12 [api stage-0 4/6] COPY pyproject.toml uv.lock README.md ./
+#12 CACHED
+
+#13 [worker stage-0 5/6] RUN uv sync --frozen --no-dev
+#13 0.385 Using CPython 3.12.13 interpreter at: /usr/local/bin/python3
+#13 0.385 Creating virtual environment at: .venv
+#13 0.439    Building papermoon @ file:///app
+#13 1.767 Downloading openai (1.3MiB)
+#13 1.774 Downloading pydantic-core (2.0MiB)
+#13 1.774 Downloading sqlalchemy (3.2MiB)
+#13 1.793 Downloading numpy (15.9MiB)
+#13 1.811 Downloading grpcio (6.5MiB)
+#13 1.812 Downloading uvloop (4.2MiB)
+#13 1.818 Downloading psycopg2-binary (4.1MiB)
+#13 6.744  Downloaded openai
+#13 11.21  Downloaded pydantic-core
+#13 16.91  Downloaded sqlalchemy
+#13 23.54  Downloaded uvloop
+#13 23.54  Downloaded psycopg2-binary
+#13 25.21       Built papermoon @ file:///app
+#13 35.09  Downloaded grpcio
+#13 59.53  Downloaded numpy
+#13 59.53 Prepared 61 packages in 59.12s
+#13 59.57 Installed 61 packages in 32ms
+#13 59.57  + alembic==1.18.4
+#13 59.57  + amqp==5.3.1
+#13 59.57  + annotated-doc==0.0.4
+#13 59.57  + annotated-types==0.7.0
+#13 59.57  + anyio==4.13.0
+#13 59.57  + billiard==4.2.4
+#13 59.57  + celery==5.6.3
+#13 59.57  + certifi==2026.5.20
+#13 59.57  + click==8.4.1
+#13 59.57  + click-didyoumean==0.3.1
+#13 59.57  + click-plugins==1.1.1.2
+#13 59.57  + click-repl==0.3.0
+#13 59.57  + distro==1.9.0
+#13 59.57  + fastapi==0.136.3
+#13 59.57  + greenlet==3.5.1
+#13 59.57  + grpcio==1.81.0
+#13 59.57  + h11==0.16.0
+#13 59.57  + h2==4.3.0
+#13 59.57  + hpack==4.1.0
+#13 59.57  + httpcore==1.0.9
+#13 59.57  + httptools==0.8.0
+#13 59.57  + httpx==0.28.1
+#13 59.57  + hyperframe==6.1.0
+#13 59.57  + idna==3.18
+#13 59.57  + jiter==0.15.0
+#13 59.57  + kombu==5.6.2
+#13 59.57  + mako==1.3.12
+#13 59.57  + markupsafe==3.0.3
+#13 59.57  + numpy==2.4.6
+#13 59.57  + openai==2.41.0
+#13 59.57  + packaging==26.2
+#13 59.57  + papermoon==0.1.0 (from file:///app)
+#13 59.57  + portalocker==3.2.0
+#13 59.57  + prompt-toolkit==3.0.52
+#13 59.57  + protobuf==7.35.0
+#13 59.57  + psycopg2-binary==2.9.12
+#13 59.57  + pydantic==2.13.4
+#13 59.57  + pydantic-core==2.46.4
+#13 59.57  + pydantic-settings==2.14.1
+#13 59.57  + python-dateutil==2.9.0.post0
+#13 59.57  + python-dotenv==1.2.2
+#13 59.57  + python-multipart==0.0.30
+#13 59.57  + pyyaml==6.0.3
+#13 59.57  + qdrant-client==1.18.0
+#13 59.57  + redis==6.4.0
+#13 59.57  + six==1.17.0
+#13 59.57  + sniffio==1.3.1
+#13 59.57  + sqlalchemy==2.0.50
+#13 59.57  + starlette==1.2.1
+#13 59.57  + tqdm==4.67.3
+#13 59.57  + typing-extensions==4.15.0
+#13 59.57  + typing-inspection==0.4.2
+#13 59.57  + tzdata==2026.2
+#13 59.57  + tzlocal==5.3.1
+#13 59.57  + urllib3==2.7.0
+#13 59.57  + uvicorn==0.48.0
+#13 59.57  + uvloop==0.22.1
+#13 59.57  + vine==5.1.0
+#13 59.57  + watchfiles==1.2.0
+#13 59.57  + wcwidth==0.7.0
+#13 59.57  + websockets==16.0
+#13 DONE 59.6s
+
+#14 [api stage-0 6/6] COPY . .
+#14 DONE 0.1s
+
+#15 [worker] exporting to image
+#15 exporting layers
+#15 exporting layers 2.9s done
+#15 exporting manifest sha256:90917125abb47c215703c3274b5a1232523b3f8ac19a230e8f29c8996cf8192d done
+#15 exporting config sha256:fd5354cc73840289e925c3cb526fb411183677e69b507c2ba772f8a0ea8ca003 done
+#15 exporting attestation manifest sha256:587d5bd88d15098b83cd4f6c921864445efdca356663f87a058e3b6017a5a4d8 done
+#15 exporting manifest list sha256:1d492ed862c65069fdd0341f7576ebd7d55a6a595cb9d0cf68615401d5bbbb70 done
+#15 naming to docker.io/library/papermoon-worker:latest done
+#15 unpacking to docker.io/library/papermoon-worker:latest
+#15 unpacking to docker.io/library/papermoon-worker:latest 1.0s done
+#15 DONE 4.0s
+
+#16 [api] exporting to image
+#16 exporting layers 2.9s done
+#16 exporting manifest sha256:daceb1236b73dff9627e0e1f4aa167f128cdc2f0eb91ee284fabca12247279e8 done
+#16 exporting config sha256:af086f1a48fc2a2d7e029ffc1976a4d40098263a4beb125ea14380db71410dc3 done
+#16 exporting attestation manifest sha256:88bf8822df13920d302717163db6ed68d138f92d500192e6bcd0eca6f23ce4df done
+#16 exporting manifest list sha256:d7e69218f6b47fb35d81087d32ebff8ae205bf6b4fdea56e923cb2a60f762cd9 done
+#16 naming to docker.io/library/papermoon-api:latest done
+#16 unpacking to docker.io/library/papermoon-api:latest 1.0s done
+#16 DONE 4.0s
+
+#17 [api] resolving provenance for metadata file
+#17 DONE 0.0s
+
+#18 [worker] resolving provenance for metadata file
+#18 DONE 0.0s
+ Image papermoon-worker Built 
+ Image papermoon-api Built 

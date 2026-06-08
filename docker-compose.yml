@@ -1,0 +1,79 @@
+services:
+
+  # ── 基础服务 ────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: papermoon
+      POSTGRES_DB: papermoon
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # healthcheck 让 api/worker 等到 postgres 真正可接受连接才启动
+    # 没有这个，容器启动了但 postgres 还没 ready，api 会报连接失败
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    # Redis 启动极快，不需要 healthcheck
+
+  qdrant:
+    image: qdrant/qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  # ── 应用服务（共用同一份镜像，command 不同）─────────────────────
+
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8008
+    ports:
+      - "8008:8008"
+    env_file:
+      - .env                          # 加载 LLM key 等敏感配置
+    environment:
+      # 覆盖 .env 里的 localhost 地址，改成容器服务名
+      DATABASE_URL: postgresql://postgres:papermoon@postgres:5432/papermoon
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+    volumes:
+      - storage_data:/app/storage     # 和 worker 共享同一块磁盘
+    depends_on:
+      postgres:
+        condition: service_healthy    # 等 postgres healthcheck 通过
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+
+  worker:
+    build: .
+    command: celery -A app.workers.celery_app.celery_app worker --loglevel=info --pool=solo
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:papermoon@postgres:5432/papermoon
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      PYTHONUNBUFFERED: "1"   # 关闭 Python 子进程输出缓冲，日志实时出现
+    volumes:
+      - storage_data:/app/storage     # 读取 api 写入的文件
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+
+# ── 具名卷声明 ──────────────────────────────────────────────────
+
+volumes:
+  postgres_data:    # postgres 数据持久化
+  qdrant_data:      # qdrant 向量数据持久化
+  storage_data:     # api 和 worker 之间共享的文件存储

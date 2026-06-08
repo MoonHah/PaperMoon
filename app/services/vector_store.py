@@ -1,11 +1,12 @@
 from typing import Protocol
 from uuid import uuid4
 
-
 class VectorStore(Protocol):
     def ensure_collection(self) -> None: ...
     def upsert(self, document_id: str, filename: str, chunks: list[str], embeddings: list[list[float]]) -> None: ...
+    def delete_by_document_id(self, document_id: str) -> None: ...
     def search(self, query_embedding: list[float], top_k: int) -> list[str]: ...
+    def search_with_metadata(self, query_embedding: list[float], top_k: int) -> list[dict]: ...
     def count(self) -> int: ...
 
 
@@ -38,11 +39,11 @@ class QdrantVectorStore:
                     distance=Distance.COSINE,
                 ),
             )
-    
-    def upsert(self, 
-               document_id: str, 
-               filename: str, 
-               chunks: list[str], 
+
+    def upsert(self,
+               document_id: str,
+               filename: str,
+               chunks: list[str],
                embeddings: list[list[float]]) -> None:
         from qdrant_client.models import PointStruct
 
@@ -61,6 +62,15 @@ class QdrantVectorStore:
         ]
         self._client.upsert(collection_name=self._collection, points=points)
     
+    def delete_by_document_id(self, document_id: str) -> None:
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        self._client.delete(
+            collection_name=self._collection,
+            points_selector=Filter(
+                must=[FieldCondition(key="document_id", match=MatchValue(value=document_id))]
+            ),
+        )
+
     def search(self, query_embedding: list[float], top_k: int) -> list[str]:
         results = self._client.query_points(
             collection_name=self._collection,
@@ -70,12 +80,28 @@ class QdrantVectorStore:
         return [
             hit.payload["chunk_text"]
             for hit in results.points
-            if hit.payload and "chunk_text" in hit.payload # 
+            if hit.payload and "chunk_text" in hit.payload #
+        ]
+
+    def search_with_metadata(self, query_embedding: list[float], top_k: int) -> list[dict]:
+        results = self._client.query_points(
+            collection_name=self._collection,
+            query=query_embedding,
+            limit=top_k,
+        )
+        return [
+            {
+                "text": hit.payload["chunk_text"],
+                "document_id": hit.payload["document_id"],
+                "filename": hit.payload["filename"],
+            }
+            for hit in results.points
+            if hit.payload and "chunk_text" in hit.payload
         ]
 
     def count(self) -> int:
         return self._client.count(collection_name=self._collection).count
-    
+
 
 # 懒加载单例
 _instance: QdrantVectorStore | None = None
@@ -89,3 +115,4 @@ def get_vector_store(settings) -> QdrantVectorStore:
             vector_size=settings.vector_size,
         )
     return _instance
+
