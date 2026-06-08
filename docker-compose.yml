@@ -29,6 +29,20 @@ services:
 
   # ── 应用服务（共用同一份镜像，command 不同）─────────────────────
 
+  model-service:
+    build:
+      context: ./model_service
+      dockerfile: Dockerfile
+    ports:
+      - "8009:8009"
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8009/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   api:
     build: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8008
@@ -41,6 +55,7 @@ services:
       DATABASE_URL: postgresql://postgres:papermoon@postgres:5432/papermoon
       REDIS_URL: redis://redis:6379/0
       QDRANT_URL: http://qdrant:6333
+      MODEL_SERVICE_URL: http://model-service:8009
     volumes:
       - storage_data:/app/storage     # 和 worker 共享同一块磁盘
     depends_on:
@@ -50,6 +65,8 @@ services:
         condition: service_started
       qdrant:
         condition: service_started
+      model-service:
+        condition: service_healthy
 
   worker:
     build: .
@@ -60,6 +77,7 @@ services:
       DATABASE_URL: postgresql://postgres:papermoon@postgres:5432/papermoon
       REDIS_URL: redis://redis:6379/0
       QDRANT_URL: http://qdrant:6333
+      MODEL_SERVICE_URL: http://model-service:8009
       PYTHONUNBUFFERED: "1"   # 关闭 Python 子进程输出缓冲，日志实时出现
     volumes:
       - storage_data:/app/storage     # 读取 api 写入的文件
@@ -70,6 +88,8 @@ services:
         condition: service_started
       qdrant:
         condition: service_started
+      model-service:
+        condition: service_healthy
 
 # ── 具名卷声明 ──────────────────────────────────────────────────
 

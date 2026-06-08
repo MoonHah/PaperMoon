@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "papermoon"
     vector_size: int = 1536
+    qdrant_timeout: int = 5
 
     # LLM
     llm_mode: str = "mock"               # "mock" | "openai"
@@ -46,6 +47,14 @@ class Settings(BaseSettings):
     llm_max_retries: int = 3
     embedding_timeout: float = 10.0
     embedding_max_retries: int = 3
+
+    # Service backends — "local" uses in-process OpenAI client, "remote" calls model-service
+    llm_backend: str = "local"          # "local" | "remote"
+    embedding_backend: str = "local"    # "local" | "remote"
+    model_service_url: str = "http://localhost:8009"
+
+    # Logging
+    log_level: str = "INFO"
 
     # File storage — uploaded files saved here for the worker to read
     storage_path: str = "storage"

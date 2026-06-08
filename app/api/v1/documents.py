@@ -1,8 +1,11 @@
+import logging
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -13,7 +16,6 @@ from app.workers import document_tasks
 router = APIRouter()
 
 ALLOWED_EXTENSIONS = {".txt", ".md"}
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 @router.get("/", response_model=list[DocumentResponse])
@@ -54,7 +56,7 @@ async def upload_document(
 
     content_bytes = await file.read()
 
-    if len(content_bytes) > MAX_FILE_SIZE:
+    if len(content_bytes) > settings.max_file_size_mb * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File exceeds 10 MB limit.")
 
     try:
@@ -79,7 +81,18 @@ async def upload_document(
     )
 
     # 投递 Celery 任务，task.id 是 Celery 分配的 UUID
-    task = document_tasks.process_document.delay(document_id)  # type: ignore[attr-defined]
+    # 若消息队列不可用则回滚：删除已写入磁盘的文件和 DB 记录，返回 503 而非 500
+    try:
+        task = document_tasks.process_document.delay(document_id)  # type: ignore[attr-defined]
+    except Exception as e:
+        logger.error("Failed to dispatch task for document %s: %s", document_id, e)
+        file_path.unlink(missing_ok=True)
+        session.delete(doc)
+        session.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="Task queue unavailable, please retry later.",
+        )
 
     # 把 task_id 存回 DB，方便后续追踪
     doc.task_id = task.id

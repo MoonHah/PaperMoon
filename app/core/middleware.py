@@ -1,4 +1,5 @@
 import logging
+import time
 import uuid
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -17,10 +18,23 @@ class RequestMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:8]
         set_request_id(request_id)
-        logger.info("→ %s %s", request.method, request.url.path)
+
+        t_start = time.perf_counter()
+        logger.info("request.start", extra={"method": request.method, "path": request.url.path})
+
         response = await call_next(request)
+
+        latency_ms = round((time.perf_counter() - t_start) * 1000, 2)
+        logger.info(
+            "request.end",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "latency_ms": latency_ms,
+            },
+        )
         response.headers["X-Request-ID"] = request_id
-        logger.info("← %s %s %d", request.method, request.url.path, response.status_code)
         return response
 
 

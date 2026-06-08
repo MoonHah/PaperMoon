@@ -1,4 +1,5 @@
 import logging
+import time
 import uuid
 from pathlib import Path
 
@@ -18,14 +19,26 @@ logger = logging.getLogger(__name__)
 @celery_app.task(
     bind=True,
     name="document_tasks.process_document",
-    autoretry_for=(Exception,),
+    autoretry_for=(OSError, ConnectionError),   # 仅对基础设施瞬时故障重试；ValueError 等业务错误不重试
     max_retries=3,
-    retry_backoff=True,      # 指数退避: 第1次重试等2s, 第2次4s, 第3次8s
+    retry_backoff=True,
     retry_backoff_max=60,
-    retry_jitter=True,       # 加随机抖动，防止多任务同时重试打爆下游服务
+    retry_jitter=True,
 )
 def process_document(self, document_id: str) -> dict:
-    set_request_id(uuid.uuid4().hex[:8])
+    task_id = self.request.id if self.request.id else uuid.uuid4().hex
+    set_request_id(task_id[:8])
+    t_start = time.perf_counter()
+
+    def _elapsed() -> float:
+        return round((time.perf_counter() - t_start) * 1000, 2)
+
+    def _log_status(status: str, **extra) -> None:
+        logger.info(
+            "task.status",
+            extra={"document_id": document_id, "task_id": task_id, "status": status, "elapsed_ms": _elapsed(), **extra},
+        )
+
     db = SessionLocal()
     try:
         doc = document_repository.get_by_id(db, document_id)
@@ -34,26 +47,26 @@ def process_document(self, document_id: str) -> dict:
 
         document_repository.update_status(db, document_id, DocumentStatus.PARSING)
         db.commit()
-        logger.info("[%s] PARSING", document_id)
+        _log_status("PARSING")
         file_path = Path(settings.storage_path) / f"{document_id}{doc.file_type}"
         content = file_path.read_text(encoding="utf-8")
 
         document_repository.update_status(db, document_id, DocumentStatus.CHUNKING)
         db.commit()
-        logger.info("[%s] CHUNKING", document_id)
+        _log_status("CHUNKING")
         chunks = chunk_text(content, chunk_size=settings.chunk_size, overlap=settings.chunk_overlap)
         if not chunks:
             raise ValueError("Document has no extractable content.")
 
         document_repository.update_status(db, document_id, DocumentStatus.EMBEDDING)
         db.commit()
-        logger.info("[%s] EMBEDDING", document_id)
+        _log_status("EMBEDDING")
         embedding_client = get_embedding_service(settings)
         embeddings = [embedding_client.embed(chunk) for chunk in chunks]
 
         document_repository.update_status(db, document_id, DocumentStatus.INDEXING)
         db.commit()
-        logger.info("[%s] INDEXING", document_id)
+        _log_status("INDEXING")
         vector_store = get_vector_store(settings)
         vector_store.delete_by_document_id(document_id)
         vector_store.upsert(
@@ -65,17 +78,21 @@ def process_document(self, document_id: str) -> dict:
 
         document_repository.update_status(db, document_id, DocumentStatus.READY, chunk_count=len(chunks))
         db.commit()
-        logger.info("[%s] READY - %d chunks indexed", document_id, len(chunks))
+        _log_status("READY", chunk_count=len(chunks))
         return {"document_id": document_id, "chunk_count": len(chunks)}
 
     except Exception as e:
         is_last_attempt = self.request.retries >= self.max_retries
         logger.error(
-            "[%s] FAILED (attempt %d/%d): %s",
-            document_id,
-            self.request.retries + 1,
-            self.max_retries + 1,
-            e,
+            "task.failed",
+            extra={
+                "document_id": document_id,
+                "task_id": task_id,
+                "attempt": self.request.retries + 1,
+                "max_attempts": self.max_retries + 1,
+                "error": str(e),
+                "elapsed_ms": _elapsed(),
+            },
         )
         if is_last_attempt:
             try:

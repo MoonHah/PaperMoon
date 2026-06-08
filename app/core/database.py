@@ -4,7 +4,11 @@ from typing import Generator
 
 from app.core.config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+engine = create_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    connect_args={"connect_timeout": 10},  # 防止 PostgreSQL 响应慢时无限等待
+)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 

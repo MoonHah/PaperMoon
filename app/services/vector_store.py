@@ -13,14 +13,13 @@ class VectorStore(Protocol):
 
 # Initialize QdrantVectorStore
 class QdrantVectorStore:
-    def __init__(self, url: str, collection: str, vector_size: int):
+    def __init__(self, url: str, collection: str, vector_size: int, timeout: int = 5):
         from qdrant_client import QdrantClient
 
         self._collection = collection
         self._vector_size = vector_size
         try:
-            # 连接 QdranClient
-            self._client = QdrantClient(url=url, timeout=5)
+            self._client = QdrantClient(url=url, timeout=timeout)
         except Exception as e:
             raise RuntimeError(f"Cannot connect to Qdrant at {url}: {e}")
 
@@ -106,13 +105,14 @@ class QdrantVectorStore:
 # 懒加载单例
 _instance: QdrantVectorStore | None = None
 
-def get_vector_store(settings) -> QdrantVectorStore:
+def get_vector_store(settings) -> VectorStore:
     global _instance
     if _instance is None:
         _instance = QdrantVectorStore(
             url=settings.qdrant_url,
             collection=settings.qdrant_collection,
             vector_size=settings.vector_size,
+            timeout=settings.qdrant_timeout,
         )
     return _instance
 

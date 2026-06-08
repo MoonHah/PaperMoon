@@ -1,4 +1,6 @@
+import json
 import logging
+from typing import cast
 
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
@@ -27,35 +29,29 @@ def _body(error_code: str, message: str, details: dict) -> dict:
     return {"error_code": error_code, "message": message, "details": details}
 
 
-async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+async def app_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    e = cast(AppError, exc)
     return JSONResponse(
-        status_code=exc.status_code,
-        content=_body(exc.error_code, exc.message, exc.details),
+        status_code=e.status_code,
+        content=_body(e.error_code, e.message, e.details),
     )
 
 
-async def http_exception_handler(
-    request: Request, exc: StarletteHTTPException
-) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    e = cast(StarletteHTTPException, exc)
     return JSONResponse(
-        status_code=exc.status_code,
-        content=_body(
-            error_code=f"HTTP_{exc.status_code}",
-            message=str(exc.detail),
-            details={},
-        ),
+        status_code=e.status_code,
+        content=_body(f"HTTP_{e.status_code}", str(e.detail), {}),
     )
 
 
-async def validation_error_handler(
-    request: Request, exc: RequestValidationError
-) -> JSONResponse:
-    logger.warning("Validation error on %s: %s", request.url.path, exc.errors())
+async def validation_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    e = cast(RequestValidationError, exc)
+    logger.warning("Validation error on %s: %s", request.url.path, e.errors())
+    # Pydantic v2 error dicts may contain non-serializable objects (e.g. ValueError in 'ctx').
+    # Pre-serialize with default=str to convert them to strings.
+    safe_errors = json.loads(json.dumps(e.errors(), default=str))
     return JSONResponse(
         status_code=422,
-        content=_body(
-            error_code="VALIDATION_ERROR",
-            message="Request validation failed",
-            details={"errors": exc.errors()},
-        ),
+        content=_body("VALIDATION_ERROR", "Request validation failed", {"errors": safe_errors}),
     )

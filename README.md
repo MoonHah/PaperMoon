@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-Phase 7 — 服务治理。加入 LLM retry/fallback、Redis 限流、/health + /ready 分离、统一错误格式、request_id 日志链路。
+Phase 10 — 集成测试。为核心 RAG / Agent / 文档处理流程建立自动化测试覆盖，无需真实外部服务即可运行。
 
 ## 技术栈
 
@@ -106,6 +106,30 @@ docker compose restart api   # 单独重启 api
 ```bash
 docker compose build api worker
 docker compose up -d --force-recreate api worker
+```
+
+---
+
+## 运行测试
+
+测试无需启动任何外部服务（使用 SQLite 内存库 + Mock 替换真实 LLM/向量库）。
+
+### 主应用测试（40 个）
+
+```bash
+# 全部运行
+uv run pytest tests/ -v
+
+# 只运行某个模块
+uv run pytest tests/test_documents.py -v
+uv run pytest tests/test_task.py -v
+```
+
+### model-service 测试（10 个）
+
+```bash
+cd model_service
+python -m pytest tests/ -v
 ```
 
 ---

@@ -1,6 +1,7 @@
 import logging
 from typing import Protocol
 
+import httpx
 import numpy as np
 import openai
 from tenacity import (
@@ -11,13 +12,9 @@ from tenacity import (
     wait_exponential,
 )
 
-logger = logging.getLogger(__name__)
+from app.services.llm_service import _RETRY_ON
 
-_RETRY_ON = (
-    openai.APITimeoutError,
-    openai.APIConnectionError,
-    openai.RateLimitError,
-)
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingClient(Protocol):
@@ -64,13 +61,43 @@ class OpenAIEmbeddingService:
         return _call()
 
 
+class RemoteEmbeddingService:
+    """Calls model-service /embed over HTTP. Forwards X-Request-ID for log correlation."""
+
+    def __init__(self, base_url: str, timeout: float):
+        self._base_url = base_url.rstrip("/")
+        self._client = httpx.Client(timeout=timeout)
+
+    def embed(self, text: str) -> list[float]:
+        from app.core.logging import get_request_id
+
+        resp = self._client.post(
+            f"{self._base_url}/embed",
+            json={"text": text},
+            headers={"X-Request-ID": get_request_id()},
+        )
+        resp.raise_for_status()
+        return resp.json()["embedding"]
+
+
+_instance: EmbeddingClient | None = None
+
+
 def get_embedding_service(settings) -> EmbeddingClient:
-    if settings.embedding_mode == "mock":
-        return MockEmbeddingService()
-    return OpenAIEmbeddingService(
-        api_key=settings.openai_api_key,
-        base_url=settings.openai_base_url,
-        model=settings.embedding_model,
-        timeout=settings.embedding_timeout,
-        max_retries=settings.embedding_max_retries,
-    )
+    global _instance
+    if _instance is None:
+        if settings.embedding_mode == "mock":
+            _instance = MockEmbeddingService()
+        elif settings.embedding_backend == "remote":
+            _instance = RemoteEmbeddingService(
+                settings.model_service_url, settings.embedding_timeout
+            )
+        else:
+            _instance = OpenAIEmbeddingService(
+                api_key=settings.openai_api_key,
+                base_url=settings.openai_base_url,
+                model=settings.embedding_model,
+                timeout=settings.embedding_timeout,
+                max_retries=settings.embedding_max_retries,
+            )
+    return _instance

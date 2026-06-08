@@ -1,0 +1,12 @@
+{
+  "pythonVersion": "3.12",
+  "executionEnvironments": [
+    {
+      "root": "model_service",
+      "extraPaths": ["model_service"]
+    },
+    {
+      "root": "."
+    }
+  ]
+}
