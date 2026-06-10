@@ -4,6 +4,7 @@ from app.agent.schemas import CitedChunk
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.repositories import document_repository
+from app.services.document_parser import parse_document
 from app.services.embedding_service import get_embedding_service
 from app.services.llm_service import get_llm_service
 from app.services.vector_store import get_vector_store
@@ -33,7 +34,7 @@ def summarize_document(document_id: str) -> str:
     
     # 2. 读取文件
     file_path = Path(settings.storage_path) / f"{document_id}{doc.file_type}"
-    content = file_path.read_text(encoding="utf-8")
+    content = parse_document(file_path)
 
     # 3. 调用 LLM
     llm = get_llm_service(settings)
@@ -60,8 +61,7 @@ def compare_documents(document_ids: list[str]) -> str:
                 raise ValueError(f"Document {doc_id} not found.")
             
             file_path = Path(settings.storage_path) / f"{doc_id}{doc.file_type}"
-            content = file_path.read_text(encoding="utf-8")
-            contents.append(content)
+            contents.append(parse_document(file_path))
 
     finally:
         db.close()

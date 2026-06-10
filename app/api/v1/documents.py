@@ -15,7 +15,7 @@ from app.workers import document_tasks
 
 router = APIRouter()
 
-ALLOWED_EXTENSIONS = {".txt", ".md"}
+ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf"}
 
 
 @router.get("/", response_model=list[DocumentResponse])
@@ -51,18 +51,19 @@ async def upload_document(
     if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type '{suffix}'. Allowed: .txt, .md",
+            detail=f"Unsupported file type '{suffix}'. Allowed: .txt, .md, .pdf",
         )
 
     content_bytes = await file.read()
 
     if len(content_bytes) > settings.max_file_size_mb * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File exceeds 10 MB limit.")
-
-    try:
-        content_bytes.decode("utf-8")   # 只验证编码，文件以字节写入磁盘
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="File must be UTF-8 encoded.")
+    
+    if suffix != ".pdf":
+        try:
+            content_bytes.decode("utf-8")   # 只验证编码，文件以字节写入磁盘
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="File must be UTF-8 encoded.")
 
     document_id = str(uuid4())
 

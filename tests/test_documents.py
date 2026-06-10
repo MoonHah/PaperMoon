@@ -1,6 +1,6 @@
 import io
+from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -10,6 +10,11 @@ def _txt_file(content: str = "Hello world.", name: str = "test.txt"):
 
 def _md_file(name: str = "notes.md"):
     return ("file", (name, b"# Title\n\nContent.", "text/markdown"))
+
+
+def _pdf_file(name: str = "sample.pdf"):
+    pdf_path = Path(__file__).parent / "fixtures" / name
+    return ("file", (name, pdf_path.read_bytes(), "application/pdf"))
 
 
 # ── Upload ───────────────────────────────────────────────────────────────────
@@ -32,10 +37,18 @@ def test_upload_response_shape(client: TestClient):
     assert data["status"] == "UPLOADED"
 
 
+def test_upload_pdf_returns_200(client: TestClient):
+    response = client.post("/api/v1/documents/upload", files=[_pdf_file()])
+    assert response.status_code == 200
+    data = response.json()
+    assert "document_id" in data
+    assert data["status"] == "UPLOADED"
+
+
 def test_upload_unsupported_format_returns_400(client: TestClient):
     response = client.post(
         "/api/v1/documents/upload",
-        files=[("file", ("report.pdf", b"%PDF content", "application/pdf"))],
+        files=[("file", ("report.docx", b"fake docx content", "application/octet-stream"))],
     )
     assert response.status_code == 400
 

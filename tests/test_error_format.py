@@ -24,7 +24,7 @@ def test_404_error_has_envelope(client: TestClient):
 def test_400_upload_unsupported_format_has_envelope(client: TestClient):
     response = client.post(
         "/api/v1/documents/upload",
-        files=[("file", ("report.pdf", b"data", "application/pdf"))],
+        files=[("file", ("report.docx", b"data", "application/octet-stream"))],
     )
     assert response.status_code == 400
     _assert_error_envelope(response.json())

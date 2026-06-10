@@ -13,6 +13,7 @@ dependencies = [
     "openai>=2.41.0",
     "psycopg2-binary>=2.9.12",
     "pydantic-settings>=2.14.1",
+    "docling>=2.0.0",
     "python-multipart>=0.0.30",
     "qdrant-client>=1.18.0",
     "sqlalchemy>=2.0.50",

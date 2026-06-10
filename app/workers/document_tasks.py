@@ -10,6 +10,7 @@ from app.repositories import document_repository
 from app.services.chunking_service import chunk_text
 from app.services.embedding_service import get_embedding_service
 from app.services.vector_store import get_vector_store
+from app.services.document_parser import parse_document
 from app.core.config import settings
 from app.workers.celery_app import celery_app
 
@@ -49,7 +50,7 @@ def process_document(self, document_id: str) -> dict:
         db.commit()
         _log_status("PARSING")
         file_path = Path(settings.storage_path) / f"{document_id}{doc.file_type}"
-        content = file_path.read_text(encoding="utf-8")
+        content = parse_document(file_path)
 
         document_repository.update_status(db, document_id, DocumentStatus.CHUNKING)
         db.commit()

@@ -37,9 +37,11 @@ def update_status(
     doc = get_by_id(session=session, document_id=document_id)
     if doc is None:
         return None
-    doc.status = status.value           # status 来自于 DocumentStatus
-    doc.chunk_count = chunk_count
-    doc.error_message = error_message
+    doc.status = status.value
+    if chunk_count is not None:
+        doc.chunk_count = chunk_count
+    if error_message is not None:
+        doc.error_message = error_message
     session.flush()                     # 没有 flush() 的话, 修改只存在于 session 的内存对象中, 不会发给数据库
     return doc
 

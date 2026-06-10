@@ -50,7 +50,6 @@ class QdrantVectorStore:
             PointStruct(
                 id=str(uuid4()),
                 vector=embedding,
-                # 因为当前没有 PostgreSQL, chunk 的原文先直接存在 Qdrant payload 中, search 时从payload 返回
                 payload={
                     "document_id": document_id,
                     "filename": filename,
