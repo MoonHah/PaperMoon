@@ -5,7 +5,6 @@ class VectorStore(Protocol):
     def ensure_collection(self) -> None: ...
     def upsert(self, document_id: str, filename: str, chunks: list[str], embeddings: list[list[float]]) -> None: ...
     def delete_by_document_id(self, document_id: str) -> None: ...
-    def search(self, query_embedding: list[float], top_k: int) -> list[str]: ...
     def search_with_metadata(self, query_embedding: list[float], top_k: int) -> list[dict]: ...
     def count(self) -> int: ...
 
@@ -68,18 +67,6 @@ class QdrantVectorStore:
                 must=[FieldCondition(key="document_id", match=MatchValue(value=document_id))]
             ),
         )
-
-    def search(self, query_embedding: list[float], top_k: int) -> list[str]:
-        results = self._client.query_points(
-            collection_name=self._collection,
-            query=query_embedding,
-            limit=top_k,
-        )
-        return [
-            hit.payload["chunk_text"]
-            for hit in results.points
-            if hit.payload and "chunk_text" in hit.payload #
-        ]
 
     def search_with_metadata(self, query_embedding: list[float], top_k: int) -> list[dict]:
         results = self._client.query_points(

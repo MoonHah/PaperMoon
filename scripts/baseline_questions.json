@@ -1,0 +1,42 @@
+[
+  {
+    "question": "What is progressive disclosure in agent skills architecture?",
+    "expected_keywords": ["progressive", "disclosure", "level", "metadata"],
+    "note": "Section 3.1 — three-level information loading: metadata / instructions / resources"
+  },
+  {
+    "question": "What does a SKILL.md file contain and how is it structured?",
+    "expected_keywords": ["SKILL.md", "YAML", "frontmatter", "description"],
+    "note": "Section 3.1 — YAML frontmatter with name and description, full body loaded on trigger"
+  },
+  {
+    "question": "How does SAGE use reinforcement learning to improve skill acquisition?",
+    "expected_keywords": ["SAGE", "sequential rollout", "AppWorld", "GRPO"],
+    "note": "Section 4.2 — Sequential Rollout + Skill-integrated Reward on AppWorld benchmark"
+  },
+  {
+    "question": "What percentage of community-contributed skills contain security vulnerabilities?",
+    "expected_keywords": ["26.1", "vulnerability", "vulnerabilities", "SkillScan"],
+    "note": "Section 6.2 — Liu et al. empirical study on 42,447 skills"
+  },
+  {
+    "question": "How are Agent Skills different from the Model Context Protocol (MCP)?",
+    "expected_keywords": ["MCP", "procedural", "connectivity", "complementary"],
+    "note": "Section 3.3 — Skills = procedural knowledge, MCP = tool connectivity"
+  },
+  {
+    "question": "What are the four trust tiers in the Skill Trust and Lifecycle Governance Framework?",
+    "expected_keywords": ["T1", "T4", "unvetted", "sandboxed", "vendor"],
+    "note": "Section 6.4 — T1 unvetted through T4 vendor-certified, graduated permissions"
+  },
+  {
+    "question": "What security attack types target agent skills?",
+    "expected_keywords": ["prompt injection", "exfiltration", "privilege escalation", "supply chain"],
+    "note": "Section 6 — four attack categories found across empirical studies"
+  },
+  {
+    "question": "How does SEAgent autonomously discover and learn new skills?",
+    "expected_keywords": ["SEAgent", "OSWorld", "curriculum", "world model"],
+    "note": "Section 4.3 — World State Model + Curriculum Generator, OSWorld 11.3% to 34.5%"
+  }
+]

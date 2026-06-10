@@ -5,6 +5,7 @@ from typing import Protocol
 
 import httpx
 import openai
+from openai.types.chat import ChatCompletionMessageParam
 from tenacity import (
     before_sleep_log,
     retry,
@@ -15,20 +16,29 @@ from tenacity import (
 
 logger = logging.getLogger(__name__)
 
+# 仅对瞬时错误重试：超时、连接失败、限流。鉴权/参数等错误直接抛出，重试无意义。
 _RETRY_ON = (
     openai.APITimeoutError,
     openai.APIConnectionError,
     openai.RateLimitError,
 )
 
+# RAG 问答的 system 约束：只依据上下文作答，防止模型凭记忆编造。
 _RAG_SYSTEM_PROMPT = (
     "你是一个基于文档回答问题的助手，只根据提供的上下文回答，如果上下文中没有答案请明确说明。"
 )
 
 
 class LLMClient(Protocol):
+    """LLM 客户端契约。
+
+    chat / stream_chat 面向 RAG 问答（自带上下文约束）；
+    complete 是不带任何框架的通用文本生成，供查询改写等场景使用。
+    """
+
     def chat(self, query: str, context_chunks: list[str]) -> str: ...
     def stream_chat(self, query: str, context_chunks: list[str]) -> Iterator[str]: ...
+    def complete(self, prompt: str) -> str: ...
 
 
 class MockLLMService:
@@ -46,6 +56,10 @@ class MockLLMService:
         for word in full.split(" "):
             yield word + " "
 
+    def complete(self, prompt: str) -> str:
+        # mock 不做真实生成，返回空串 —— 让上层（如 MultiQueryRetriever）自动降级
+        return ""
+
 
 class OpenAILLMService:
     def __init__(self, api_key: str, base_url: str, model: str, timeout: float, max_retries: int):
@@ -54,8 +68,11 @@ class OpenAILLMService:
         self._timeout = timeout
         self._max_retries = max_retries
 
-    def chat(self, query: str, context_chunks: list[str]) -> str:
-        context = "\n\n---\n\n".join(context_chunks)
+    def _create(self, messages: list[ChatCompletionMessageParam]) -> str:
+        """所有非流式调用的统一出口：重试、超时、计费日志只写一遍。
+
+        chat / complete 只负责组装 messages，"怎么调用"的细节收敛在这里。
+        """
 
         @retry(
             retry=retry_if_exception_type(_RETRY_ON),
@@ -67,16 +84,7 @@ class OpenAILLMService:
         def _call() -> str:
             resp = self._client.chat.completions.create(
                 model=self._model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": _RAG_SYSTEM_PROMPT,
-                    },
-                    {
-                        "role": "user",
-                        "content": f"上下文：\n{context}\n\n问题: {query}",
-                    },
-                ],
+                messages=messages,
                 timeout=self._timeout,
             )
             if resp.usage:
@@ -93,19 +101,24 @@ class OpenAILLMService:
 
         return _call()
 
+    def chat(self, query: str, context_chunks: list[str]) -> str:
+        # RAG 问答：system 约束「只依据上下文」+ user 携带检索到的上下文
+        context = "\n\n---\n\n".join(context_chunks)
+        return self._create(
+            [
+                {"role": "system", "content": _RAG_SYSTEM_PROMPT},
+                {"role": "user", "content": f"上下文：\n{context}\n\n问题: {query}"},
+            ]
+        )
+
     def stream_chat(self, query: str, context_chunks: list[str]) -> Iterator[str]:
+        # 流式逐 token yield，与 _create 的一次性返回结构不同，单独保留
         context = "\n\n---\n\n".join(context_chunks)
         stream = self._client.chat.completions.create(
             model=self._model,
             messages=[
-                {
-                    "role": "system",
-                    "content": _RAG_SYSTEM_PROMPT,
-                },
-                {
-                    "role": "user",
-                    "content": f"上下文：\n{context}\n\n问题: {query}",
-                },
+                {"role": "system", "content": _RAG_SYSTEM_PROMPT},
+                {"role": "user", "content": f"上下文：\n{context}\n\n问题: {query}"},
             ],
             timeout=self._timeout,
             stream=True,
@@ -115,6 +128,10 @@ class OpenAILLMService:
             if delta:
                 yield delta
 
+    def complete(self, prompt: str) -> str:
+        # 通用文本生成：单条 user message，不套任何 RAG system prompt
+        return self._create([{"role": "user", "content": prompt}])
+
 
 class RemoteLLMService:
     """Calls model-service /generate over HTTP. Forwards X-Request-ID for log correlation."""
@@ -123,25 +140,26 @@ class RemoteLLMService:
         self._base_url = base_url.rstrip("/")
         self._client = httpx.Client(timeout=timeout)
 
-    def chat(self, query: str, context_chunks: list[str]) -> str:
+    def _generate(self, messages: list[dict]) -> str:
+        """非流式 /generate 的统一出口：URL、请求头、错误检查只写一遍。"""
         from app.core.logging import get_request_id
 
-        context = "\n\n---\n\n".join(context_chunks)
         resp = self._client.post(
             f"{self._base_url}/generate",
-            json={
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": _RAG_SYSTEM_PROMPT,
-                    },
-                    {"role": "user", "content": f"上下文：\n{context}\n\n问题: {query}"},
-                ]
-            },
+            json={"messages": messages},
             headers={"X-Request-ID": get_request_id()},
         )
         resp.raise_for_status()
         return resp.json()["content"]
+
+    def chat(self, query: str, context_chunks: list[str]) -> str:
+        context = "\n\n---\n\n".join(context_chunks)
+        return self._generate(
+            [
+                {"role": "system", "content": _RAG_SYSTEM_PROMPT},
+                {"role": "user", "content": f"上下文：\n{context}\n\n问题: {query}"},
+            ]
+        )
 
     def stream_chat(self, query: str, context_chunks: list[str]) -> Iterator[str]:
         from app.core.logging import get_request_id
@@ -152,10 +170,7 @@ class RemoteLLMService:
             f"{self._base_url}/generate/stream",
             json={
                 "messages": [
-                    {
-                        "role": "system",
-                        "content": _RAG_SYSTEM_PROMPT,
-                    },
+                    {"role": "system", "content": _RAG_SYSTEM_PROMPT},
                     {"role": "user", "content": f"上下文：\n{context}\n\n问题: {query}"},
                 ]
             },
@@ -173,14 +188,17 @@ class RemoteLLMService:
                     raise RuntimeError(f"model-service stream error: {payload['error']}")
                 yield payload["token"]
 
+    def complete(self, prompt: str) -> str:
+        # 通用文本生成：单条 user message，不套 RAG system prompt
+        return self._generate([{"role": "user", "content": prompt}])
+
 
 class ResilientLLMService:
-    """Wraps a primary LLMClient with a fallback. Logs and falls back on any failure."""
+    """包装「主 client + 兜底 client」：主调用抛任何异常都降级到兜底，保证不向上抛错。"""
 
     def __init__(self, primary: LLMClient, fallback: LLMClient):
         self._primary = primary
         self._fallback = fallback
-
 
     def chat(self, query: str, context_chunks: list[str]) -> str:
         from app.core.logging import get_request_id
@@ -195,7 +213,6 @@ class ResilientLLMService:
                 get_request_id(),
             )
             return self._fallback.chat(query, context_chunks)
-
 
     def stream_chat(self, query: str, context_chunks: list[str]) -> Iterator[str]:
         from app.core.logging import get_request_id
@@ -218,8 +235,23 @@ class ResilientLLMService:
         yield first_token
         yield from primary_iter
 
+    def complete(self, prompt: str) -> str:
+        from app.core.logging import get_request_id
+
+        try:
+            return self._primary.complete(prompt)
+        except Exception as e:
+            logger.warning(
+                "Primary LLM failed after retries, switching to fallback. "
+                "error=%s request_id=%s",
+                type(e).__name__,
+                get_request_id(),
+            )
+            return self._fallback.complete(prompt)
+
 
 _instance: LLMClient | None = None
+
 
 def get_llm_service(settings) -> LLMClient:
     global _instance

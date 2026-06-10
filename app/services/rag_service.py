@@ -3,8 +3,8 @@ import time
 from collections.abc import Iterator
 
 from app.core.config import settings
-from app.services.embedding_service import get_embedding_service
 from app.services.llm_service import get_llm_service
+from app.services.retrieval import get_retriever
 from app.services.vector_store import get_vector_store
 
 logger = logging.getLogger(__name__)
@@ -17,11 +17,9 @@ def chat(query: str, top_k: int = 3) -> dict:
 
     t_start = time.perf_counter()
 
-    embedding_client = get_embedding_service(settings)
-    query_embedding = embedding_client.embed(query)
-
     t_retrieve = time.perf_counter()
-    retrieved_chunks = vector_store.search(query_embedding, top_k=top_k)
+    retriever = get_retriever(settings)
+    retrieved_chunks = [c["text"] for c in retriever.retrieve(query, top_k=top_k)]
     retrieval_latency_ms = round((time.perf_counter() - t_retrieve) * 1000, 2)
 
     t_llm = time.perf_counter()
@@ -54,11 +52,9 @@ def stream_chat(query: str, top_k: int = 3) -> Iterator[str]:
 
     t_start = time.perf_counter()
 
-    embedding_client = get_embedding_service(settings)
-    query_embedding = embedding_client.embed(query)
-
     t_retrieve = time.perf_counter()
-    retrieved_chunks = vector_store.search(query_embedding, top_k=top_k)
+    retriever = get_retriever(settings)
+    retrieved_chunks = [c["text"] for c in retriever.retrieve(query, top_k=top_k)]
     retrieval_latency_ms = round((time.perf_counter() - t_retrieve) * 1000, 2)
 
     t_llm = time.perf_counter()

@@ -1,0 +1,16 @@
+from app.services.embedding_service import EmbeddingClient
+from app.services.vector_store import VectorStore
+
+
+class SimpleRetriever:
+    def __init__(self, embed_client: EmbeddingClient, vector_store: VectorStore):
+        self._embed_client = embed_client
+        self._vector_store = vector_store
+    
+    def retrieve(self, query: str, top_k: int) -> list[dict]:
+        embedding = self._embed_client.embed(query)
+
+        return self._vector_store.search_with_metadata(
+            query_embedding=embedding,
+            top_k=top_k,
+        )

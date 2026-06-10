@@ -5,20 +5,12 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.repositories import document_repository
 from app.services.document_parser import parse_document
-from app.services.embedding_service import get_embedding_service
 from app.services.llm_service import get_llm_service
-from app.services.vector_store import get_vector_store
+from app.services.retrieval import get_retriever
 
 
 def search_documents(query: str, top_k: int = 5) -> list[CitedChunk]:
-    embed_client = get_embedding_service(settings)
-    embedding = embed_client.embed(query)
-
-    chunks = get_vector_store(settings).search_with_metadata(
-        query_embedding=embedding,
-        top_k=top_k,
-    )
-
+    chunks = get_retriever(settings).retrieve(query, top_k=top_k)
     return [CitedChunk(**chunk) for chunk in chunks]
 
 

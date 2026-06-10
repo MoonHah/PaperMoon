@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     embedding_mode: str = "mock"         # "mock" | "openai"
     embedding_model: str = "text-embedding-3-small"
 
+    # Retrieval strategy
+    retrieval_mode: str = "simple"       # "simple" | "multi_query"
+    multi_query_count: int = 4
+
     # Chunking
     chunk_size: int = 500
     chunk_overlap: int = 50
