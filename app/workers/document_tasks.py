@@ -3,24 +3,30 @@ import time
 import uuid
 from pathlib import Path
 
+import httpx
+
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.logging import set_request_id
 from app.models.document import DocumentStatus
 from app.repositories import document_repository
 from app.services.chunking_service import chunk_text
+from app.services.document_parser import parse_document
 from app.services.embedding_service import get_embedding_service
 from app.services.vector_store import get_vector_store
-from app.services.document_parser import parse_document
-from app.core.config import settings
 from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+# 基础设施瞬时故障：进程/网络层错误 + httpx 传输层错误（含 remote 后端超时/连接失败）。
+# autoretry_for 与下方 will_retry 共用同一元组，保证「会不会重试」的判断完全一致。
+RETRYABLE_ERRORS = (OSError, ConnectionError, httpx.TransportError)
 
 
 @celery_app.task(
     bind=True,
     name="document_tasks.process_document",
-    autoretry_for=(OSError, ConnectionError),   # 仅对基础设施瞬时故障重试；ValueError 等业务错误不重试
+    autoretry_for=RETRYABLE_ERRORS,
     max_retries=3,
     retry_backoff=True,
     retry_backoff_max=60,
@@ -83,7 +89,13 @@ def process_document(self, document_id: str) -> dict:
         return {"document_id": document_id, "chunk_count": len(chunks)}
 
     except Exception as e:
-        is_last_attempt = self.request.retries >= self.max_retries
+        # 只有 autoretry_for 中的异常、且未达上限时才会被 celery 重试。
+        # 其余（业务错误 ValueError、超时 SoftTimeLimitExceeded 等）不会重试，
+        # 必须立即置 FAILED，否则文档会卡在中间态（PARSING/INDEXING）永不落终态。
+        will_retry = (
+            isinstance(e, RETRYABLE_ERRORS)
+            and self.request.retries < self.max_retries
+        )
         logger.error(
             "task.failed",
             extra={
@@ -92,10 +104,11 @@ def process_document(self, document_id: str) -> dict:
                 "attempt": self.request.retries + 1,
                 "max_attempts": self.max_retries + 1,
                 "error": str(e),
+                "will_retry": will_retry,
                 "elapsed_ms": _elapsed(),
             },
         )
-        if is_last_attempt:
+        if not will_retry:
             try:
                 document_repository.update_status(
                     db, document_id, DocumentStatus.FAILED, error_message=str(e)

@@ -20,8 +20,14 @@ def chat(request: ChatRequest, stream: bool = False):
             raise HTTPException(status_code=400, detail="No documents uploaded yet.")
 
         def sse_gen():
-            for token in rag_service.stream_chat(request.query, request.top_k):
-                yield f'data: {json.dumps({"token": token})}\n\n'
+            # 流式过程中的异常（检索/embedding/LLM 失败）必须在流内兜住：
+            # 否则 SSE 会无 [DONE] 裸断，客户端挂起等待。
+            try:
+                for token in rag_service.stream_chat(request.query, request.top_k):
+                    yield f'data: {json.dumps({"token": token})}\n\n'
+            except Exception as e:
+                logger.error("Stream chat failed [%s]: %s", type(e).__name__, e)
+                yield f'data: {json.dumps({"error": "服务暂时繁忙，请稍后重试。"})}\n\n'
             yield "data: [DONE]\n\n"
 
         return StreamingResponse(sse_gen(), media_type="text/event-stream")

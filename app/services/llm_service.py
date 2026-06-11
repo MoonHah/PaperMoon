@@ -6,22 +6,10 @@ from typing import Any, Protocol
 import httpx
 import openai
 from openai.types.chat import ChatCompletionMessageParam
-from tenacity import (
-    before_sleep_log,
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
+
+from app.services._openai_retry import openai_retry
 
 logger = logging.getLogger(__name__)
-
-# 仅对瞬时错误重试：超时、连接失败、限流。鉴权/参数等错误直接抛出，重试无意义。
-_RETRY_ON = (
-    openai.APITimeoutError,
-    openai.APIConnectionError,
-    openai.RateLimitError,
-)
 
 # RAG 问答的 system 约束：只依据上下文作答，防止模型凭记忆编造。
 _RAG_SYSTEM_PROMPT = (
@@ -80,13 +68,7 @@ class OpenAILLMService:
         显式传入时透传给 API（complete 用它求可复现）。
         """
 
-        @retry(
-            retry=retry_if_exception_type(_RETRY_ON),
-            wait=wait_exponential(multiplier=1, min=2, max=30),
-            stop=stop_after_attempt(self._max_retries),
-            before_sleep=before_sleep_log(logger, logging.WARNING),
-            reraise=True,
-        )
+        @openai_retry(self._max_retries, logger)
         def _call() -> str:
             kwargs: dict[str, Any] = {
                 "model": self._model,

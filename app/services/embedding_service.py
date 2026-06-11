@@ -4,15 +4,8 @@ from typing import Protocol
 import httpx
 import numpy as np
 import openai
-from tenacity import (
-    before_sleep_log,
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
-from app.services.llm_service import _RETRY_ON
+from app.services._openai_retry import openai_retry
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +36,7 @@ class OpenAIEmbeddingService:
         self._max_retries = max_retries
 
     def embed(self, text: str) -> list[float]:
-        @retry(
-            retry=retry_if_exception_type(_RETRY_ON),
-            wait=wait_exponential(multiplier=1, min=2, max=30),
-            stop=stop_after_attempt(self._max_retries),
-            before_sleep=before_sleep_log(logger, logging.WARNING),
-            reraise=True,
-        )
+        @openai_retry(self._max_retries, logger)
         def _call() -> list[float]:
             resp = self._client.embeddings.create(
                 input=text,

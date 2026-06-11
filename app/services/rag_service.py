@@ -10,25 +10,34 @@ from app.services.vector_store import get_vector_store
 logger = logging.getLogger(__name__)
 
 
-def chat(query: str, top_k: int = 3) -> dict:
-    vector_store = get_vector_store(settings)
-    if vector_store.count() == 0:
+def _ensure_documents_exist() -> None:
+    if get_vector_store(settings).count() == 0:
         raise ValueError("No documents uploaded yet.")
 
+
+def _retrieve(query: str, top_k: int) -> tuple[list[str], float]:
+    """检索 + 计时，返回 (chunk 文本列表, 检索耗时 ms)。chat / stream_chat 共用。"""
+    t = time.perf_counter()
+    chunks = [c["text"] for c in get_retriever(settings).retrieve(query, top_k=top_k)]
+    latency_ms = round((time.perf_counter() - t) * 1000, 2)
+    return chunks, latency_ms
+
+
+def _model_label() -> str:
+    return settings.llm_model if settings.llm_mode == "openai" else "mock"
+
+
+def chat(query: str, top_k: int = 3) -> dict:
+    _ensure_documents_exist()
     t_start = time.perf_counter()
 
-    t_retrieve = time.perf_counter()
-    retriever = get_retriever(settings)
-    retrieved_chunks = [c["text"] for c in retriever.retrieve(query, top_k=top_k)]
-    retrieval_latency_ms = round((time.perf_counter() - t_retrieve) * 1000, 2)
+    retrieved_chunks, retrieval_latency_ms = _retrieve(query, top_k)
 
     t_llm = time.perf_counter()
-    llm_client = get_llm_service(settings)
-    answer = llm_client.chat(query, retrieved_chunks)
+    answer = get_llm_service(settings).chat(query, retrieved_chunks)
     llm_latency_ms = round((time.perf_counter() - t_llm) * 1000, 2)
 
     total_latency_ms = round((time.perf_counter() - t_start) * 1000, 2)
-
     logger.info(
         "rag.chat",
         extra={
@@ -36,34 +45,23 @@ def chat(query: str, top_k: int = 3) -> dict:
             "retrieval_latency_ms": retrieval_latency_ms,
             "llm_latency_ms": llm_latency_ms,
             "total_latency_ms": total_latency_ms,
-            "model": settings.llm_model if settings.llm_mode == "openai" else "mock",
+            "model": _model_label(),
         },
     )
-
     return {"answer": answer, "retrieved_chunks": retrieved_chunks}
 
 
-
-
 def stream_chat(query: str, top_k: int = 3) -> Iterator[str]:
-    vector_store = get_vector_store(settings)
-    if vector_store.count() == 0:
-        raise ValueError("No documents uploaded yet.")
-
+    _ensure_documents_exist()
     t_start = time.perf_counter()
 
-    t_retrieve = time.perf_counter()
-    retriever = get_retriever(settings)
-    retrieved_chunks = [c["text"] for c in retriever.retrieve(query, top_k=top_k)]
-    retrieval_latency_ms = round((time.perf_counter() - t_retrieve) * 1000, 2)
+    retrieved_chunks, retrieval_latency_ms = _retrieve(query, top_k)
 
     t_llm = time.perf_counter()
-    llm_client = get_llm_service(settings)
-    yield from llm_client.stream_chat(query, retrieved_chunks)
+    yield from get_llm_service(settings).stream_chat(query, retrieved_chunks)
     llm_latency_ms = round((time.perf_counter() - t_llm) * 1000, 2)
 
     total_latency_ms = round((time.perf_counter() - t_start) * 1000, 2)
-
     logger.info(
         "rag.stream_chat",
         extra={
@@ -71,8 +69,6 @@ def stream_chat(query: str, top_k: int = 3) -> Iterator[str]:
             "retrieval_latency_ms": retrieval_latency_ms,
             "llm_latency_ms": llm_latency_ms,
             "total_latency_ms": total_latency_ms,
-            "model": settings.llm_model if settings.llm_mode == "openai" else "mock",
+            "model": _model_label(),
         },
     )
-
-

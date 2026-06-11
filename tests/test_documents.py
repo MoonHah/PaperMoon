@@ -106,9 +106,19 @@ def test_get_document_by_id_returns_correct_fields(client: TestClient):
 
 
 def test_two_uploads_are_independent(client: TestClient):
-    client.post("/api/v1/documents/upload", files=[_txt_file(name="a.txt")])
-    client.post("/api/v1/documents/upload", files=[_txt_file(name="b.txt")])
+    # 内容不同 → 两条独立记录（内容相同会被去重，见下方 test_duplicate_content_is_deduplicated）
+    client.post("/api/v1/documents/upload", files=[_txt_file(content="AAA", name="a.txt")])
+    client.post("/api/v1/documents/upload", files=[_txt_file(content="BBB", name="b.txt")])
     docs = client.get("/api/v1/documents/").json()
     assert len(docs) == 2
     filenames = {d["filename"] for d in docs}
     assert filenames == {"a.txt", "b.txt"}
+
+
+def test_duplicate_content_is_deduplicated(client: TestClient):
+    # 相同内容上传两次（哪怕文件名不同）：按内容指纹去重，第二次幂等复用第一次的 document_id
+    r1 = client.post("/api/v1/documents/upload", files=[_txt_file(content="same", name="x.txt")]).json()
+    r2 = client.post("/api/v1/documents/upload", files=[_txt_file(content="same", name="y.txt")]).json()
+    assert r1["document_id"] == r2["document_id"]
+    docs = client.get("/api/v1/documents/").json()
+    assert len(docs) == 1

@@ -1,25 +1,45 @@
 from sqlalchemy import select
-
 from sqlalchemy.orm import Session
+
 from app.models.document import Document, DocumentStatus
 
 
-def create(session: Session, document_id: str, filename: str, file_type: str) -> Document:
+def create(
+    session: Session,
+    document_id: str,
+    filename: str,
+    file_type: str,
+    content_hash: str | None = None,
+) -> Document:
     doc = Document(
-        document_id = document_id,
+        document_id=document_id,
         filename=filename,
         file_type=file_type,
-        status=DocumentStatus.UPLOADED.value)
-    
+        content_hash=content_hash,
+        status=DocumentStatus.UPLOADED.value,
+    )
     session.add(doc)
     session.flush()
     return doc
 
 
 def get_by_id(session: Session, document_id: str) -> Document | None:
-    stmt = select(Document).where(Document.document_id == document_id)   # 构造: SELECT * FROM documents
-    result = session.execute(stmt).scalar_one_or_none()                  # 执行 + 获取
+    stmt = select(Document).where(Document.document_id == document_id)   # SELECT * FROM documents WHERE ...
+    result = session.execute(stmt).scalar_one_or_none()
     return result
+
+
+def get_by_content_hash(session: Session, content_hash: str) -> Document | None:
+    """按内容指纹查找已存在的文档（用于上传去重）。
+
+    只匹配未失败的记录：之前 FAILED 的同内容文件应允许重新上传重试，
+    不能被失败记录挡住。正常情况下同一 content_hash 至多一条非失败记录。
+    """
+    stmt = select(Document).where(
+        Document.content_hash == content_hash,
+        Document.status != DocumentStatus.FAILED.value,
+    )
+    return session.execute(stmt).scalars().first()
 
 
 def get_all(session: Session) -> list[Document]:
@@ -42,9 +62,5 @@ def update_status(
         doc.chunk_count = chunk_count
     if error_message is not None:
         doc.error_message = error_message
-    session.flush()                     # 没有 flush() 的话, 修改只存在于 session 的内存对象中, 不会发给数据库
+    session.flush()                     # 把内存对象的修改 flush 到 DB
     return doc
-
-
-
-                        

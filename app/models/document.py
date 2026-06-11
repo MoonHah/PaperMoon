@@ -21,6 +21,8 @@ class Document(Base):
     document_id: Mapped[str] = mapped_column(String, primary_key=True)
     filename: Mapped[str] = mapped_column(String, nullable=False)
     file_type: Mapped[str] = mapped_column(String, nullable=False)
+    # 文件内容的 sha256 指纹，用于上传去重（幂等）；历史记录为 NULL 故 nullable
+    content_hash: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     status: Mapped[str] = mapped_column(String, nullable=False)
     task_id: Mapped[str | None] = mapped_column(String, nullable=True)
     chunk_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
