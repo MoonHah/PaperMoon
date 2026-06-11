@@ -1,7 +1,7 @@
 import json
 import logging
 from collections.abc import Iterator
-from typing import Protocol
+from typing import Any, Protocol
 
 import httpx
 import openai
@@ -33,12 +33,13 @@ class LLMClient(Protocol):
     """LLM 客户端契约。
 
     chat / stream_chat 面向 RAG 问答（自带上下文约束）；
-    complete 是不带任何框架的通用文本生成，供查询改写等场景使用。
+    complete 是不带任何框架的通用文本生成，供查询改写、HyDE 等场景使用。
+    complete 的 temperature 默认 0.0 求可复现；调用方可显式调高以获取多样性。
     """
 
     def chat(self, query: str, context_chunks: list[str]) -> str: ...
     def stream_chat(self, query: str, context_chunks: list[str]) -> Iterator[str]: ...
-    def complete(self, prompt: str) -> str: ...
+    def complete(self, prompt: str, temperature: float = 0.0) -> str: ...
 
 
 class MockLLMService:
@@ -56,8 +57,9 @@ class MockLLMService:
         for word in full.split(" "):
             yield word + " "
 
-    def complete(self, prompt: str) -> str:
-        # mock 不做真实生成，返回空串 —— 让上层（如 MultiQueryRetriever）自动降级
+    def complete(self, prompt: str, temperature: float = 0.0) -> str:
+        # mock 不做真实生成，返回空串 —— 让上层（HyDE / MultiQuery）自动降级
+        # temperature 对 mock 无意义，仅为接口一致保留
         return ""
 
 
@@ -68,10 +70,14 @@ class OpenAILLMService:
         self._timeout = timeout
         self._max_retries = max_retries
 
-    def _create(self, messages: list[ChatCompletionMessageParam]) -> str:
+    def _create(
+        self, messages: list[ChatCompletionMessageParam], temperature: float | None = None
+    ) -> str:
         """所有非流式调用的统一出口：重试、超时、计费日志只写一遍。
 
         chat / complete 只负责组装 messages，"怎么调用"的细节收敛在这里。
+        temperature 为 None 时沿用 OpenAI 默认（保持 chat 原有行为）；
+        显式传入时透传给 API（complete 用它求可复现）。
         """
 
         @retry(
@@ -82,11 +88,14 @@ class OpenAILLMService:
             reraise=True,
         )
         def _call() -> str:
-            resp = self._client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-                timeout=self._timeout,
-            )
+            kwargs: dict[str, Any] = {
+                "model": self._model,
+                "messages": messages,
+                "timeout": self._timeout,
+            }
+            if temperature is not None:
+                kwargs["temperature"] = temperature
+            resp = self._client.chat.completions.create(**kwargs)
             if resp.usage:
                 logger.info(
                     "llm.token_usage",
@@ -128,9 +137,9 @@ class OpenAILLMService:
             if delta:
                 yield delta
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, temperature: float = 0.0) -> str:
         # 通用文本生成：单条 user message，不套任何 RAG system prompt
-        return self._create([{"role": "user", "content": prompt}])
+        return self._create([{"role": "user", "content": prompt}], temperature=temperature)
 
 
 class RemoteLLMService:
@@ -140,13 +149,16 @@ class RemoteLLMService:
         self._base_url = base_url.rstrip("/")
         self._client = httpx.Client(timeout=timeout)
 
-    def _generate(self, messages: list[dict]) -> str:
+    def _generate(self, messages: list[dict], temperature: float | None = None) -> str:
         """非流式 /generate 的统一出口：URL、请求头、错误检查只写一遍。"""
         from app.core.logging import get_request_id
 
+        payload: dict[str, Any] = {"messages": messages}
+        if temperature is not None:
+            payload["temperature"] = temperature
         resp = self._client.post(
             f"{self._base_url}/generate",
-            json={"messages": messages},
+            json=payload,
             headers={"X-Request-ID": get_request_id()},
         )
         resp.raise_for_status()
@@ -188,9 +200,9 @@ class RemoteLLMService:
                     raise RuntimeError(f"model-service stream error: {payload['error']}")
                 yield payload["token"]
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, temperature: float = 0.0) -> str:
         # 通用文本生成：单条 user message，不套 RAG system prompt
-        return self._generate([{"role": "user", "content": prompt}])
+        return self._generate([{"role": "user", "content": prompt}], temperature=temperature)
 
 
 class ResilientLLMService:
@@ -235,11 +247,11 @@ class ResilientLLMService:
         yield first_token
         yield from primary_iter
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, temperature: float = 0.0) -> str:
         from app.core.logging import get_request_id
 
         try:
-            return self._primary.complete(prompt)
+            return self._primary.complete(prompt, temperature=temperature)
         except Exception as e:
             logger.warning(
                 "Primary LLM failed after retries, switching to fallback. "
@@ -247,7 +259,7 @@ class ResilientLLMService:
                 type(e).__name__,
                 get_request_id(),
             )
-            return self._fallback.complete(prompt)
+            return self._fallback.complete(prompt, temperature=temperature)
 
 
 _instance: LLMClient | None = None

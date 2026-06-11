@@ -28,8 +28,9 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
 
     # Retrieval strategy
-    retrieval_mode: str = "simple"       # "simple" | "multi_query"
+    retrieval_mode: str = "simple"       # "simple" | "multi_query" | "hyde"
     multi_query_count: int = 3
+    retrieval_temperature: float = 0.0   # 含 LLM 的检索策略生成温度（0=可复现）
 
     # Chunking
     chunk_size: int = 500

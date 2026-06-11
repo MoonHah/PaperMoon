@@ -1,16 +1,25 @@
-from app.services.embedding_service import EmbeddingClient
-from app.services.vector_store import VectorStore
-from app.services.llm_service import LLMClient
 from itertools import zip_longest
+
+from app.services.embedding_service import EmbeddingClient
+from app.services.llm_service import LLMClient
+from app.services.vector_store import VectorStore
 
 
 class MultiQueryRetriever:
-    def __init__(self, embed_client: EmbeddingClient, vector_store: VectorStore, llm_client: LLMClient, query_count: int ) -> None:
+    def __init__(
+        self,
+        embed_client: EmbeddingClient,
+        vector_store: VectorStore,
+        llm_client: LLMClient,
+        query_count: int,
+        temperature: float = 0.0,
+    ) -> None:
         self._embed_client = embed_client
         self._vector_store = vector_store
         self._llm_client = llm_client
         self._query_count = query_count
-    
+        self._temperature = temperature
+
     def _rewrite(self, query: str) -> list[str]:
         # 1. 构造 prompt & 调用 LLM
         prompt = (
@@ -20,10 +29,10 @@ class MultiQueryRetriever:
             f"问题：{query}"
         )
         try:
-            raw = self._llm_client.complete(prompt)
+            raw = self._llm_client.complete(prompt, temperature=self._temperature)
         except Exception:
             return [query]         # LLM 调用失败 -> 退回只用原始 query
-        
+
         # 2. 解析清洗
         rewrites = []
         for line in raw.splitlines():
@@ -31,9 +40,9 @@ class MultiQueryRetriever:
             if line:
                 rewrites.append(line)
 
-        # 3. 合并 query 并去重
+        # 3. 合并 query 并去重（保序）
         return list(dict.fromkeys([query, *rewrites]))
-    
+
     def retrieve(self, query: str, top_k: int) -> list[dict]:
         queries = self._rewrite(query)
 
@@ -54,8 +63,3 @@ class MultiQueryRetriever:
                 merged.append(chunk)
 
         return merged[:top_k]
-
-
-
-    
-    
