@@ -2,41 +2,96 @@
   {
     "question": "What is progressive disclosure in agent skills architecture?",
     "expected_keywords": ["progressive", "disclosure", "level", "metadata"],
-    "note": "Section 3.1 — three-level information loading: metadata / instructions / resources"
+    "note": "sample.pdf Agent Skills | 原题"
   },
   {
     "question": "What does a SKILL.md file contain and how is it structured?",
     "expected_keywords": ["SKILL.md", "YAML", "frontmatter", "description"],
-    "note": "Section 3.1 — YAML frontmatter with name and description, full body loaded on trigger"
+    "note": "sample.pdf Agent Skills | 原题"
   },
   {
     "question": "How does SAGE use reinforcement learning to improve skill acquisition?",
     "expected_keywords": ["SAGE", "sequential rollout", "AppWorld", "GRPO"],
-    "note": "Section 4.2 — Sequential Rollout + Skill-integrated Reward on AppWorld benchmark"
+    "note": "sample.pdf Agent Skills | 原题"
   },
   {
     "question": "What percentage of community-contributed skills contain security vulnerabilities?",
     "expected_keywords": ["26.1", "vulnerability", "vulnerabilities", "SkillScan"],
-    "note": "Section 6.2 — Liu et al. empirical study on 42,447 skills"
+    "note": "sample.pdf Agent Skills | 原题"
   },
   {
     "question": "How are Agent Skills different from the Model Context Protocol (MCP)?",
     "expected_keywords": ["MCP", "procedural", "connectivity", "complementary"],
-    "note": "Section 3.3 — Skills = procedural knowledge, MCP = tool connectivity"
+    "note": "sample.pdf Agent Skills | 原题"
   },
   {
     "question": "What are the four trust tiers in the Skill Trust and Lifecycle Governance Framework?",
     "expected_keywords": ["T1", "T4", "unvetted", "sandboxed", "vendor"],
-    "note": "Section 6.4 — T1 unvetted through T4 vendor-certified, graduated permissions"
+    "note": "sample.pdf Agent Skills | 原题"
   },
   {
     "question": "What security attack types target agent skills?",
     "expected_keywords": ["prompt injection", "exfiltration", "privilege escalation", "supply chain"],
-    "note": "Section 6 — four attack categories found across empirical studies"
+    "note": "sample.pdf Agent Skills | 原题"
   },
   {
     "question": "How does SEAgent autonomously discover and learn new skills?",
     "expected_keywords": ["SEAgent", "OSWorld", "curriculum", "world model"],
-    "note": "Section 4.3 — World State Model + Curriculum Generator, OSWorld 11.3% to 34.5%"
+    "note": "sample.pdf Agent Skills | 原题"
+  },
+
+  {
+    "question": "On the TheAgentCompany benchmark, which model performs best across the tasks?",
+    "expected_keywords": ["TheAgentCompany", "Gemini-2.5-Pro", "175 tasks", "winner"],
+    "note": "2412.14161v3 TheAgentCompany | A 直接问法（用 benchmark 原名+术语）"
+  },
+  {
+    "question": "Which AI does the best job handling office work inside a simulated software company?",
+    "expected_keywords": ["TheAgentCompany", "Gemini-2.5-Pro", "175 tasks", "winner"],
+    "note": "2412.14161v3 TheAgentCompany | B 措辞偏离（避开所有专有名词，问同一事实）"
+  },
+
+  {
+    "question": "What accuracy does ChatGPT Agent achieve on the BEARCUBS benchmark compared to humans?",
+    "expected_keywords": ["BEARCUBS", "65.8", "84.7", "ChatGPT Agent"],
+    "note": "2503.07919v3 BEARCUBS | A 直接问法"
+  },
+  {
+    "question": "On that web-browsing test for screen-operating agents, how well did the best agent score versus people?",
+    "expected_keywords": ["BEARCUBS", "65.8", "84.7", "ChatGPT Agent"],
+    "note": "2503.07919v3 BEARCUBS | B 措辞偏离"
+  },
+
+  {
+    "question": "What three core functions does the survey use to evaluate deep research agents?",
+    "expected_keywords": ["retrieval quality", "knowledge synthesis", "verifiability"],
+    "note": "2503.16416v2 benchmark 综述 | A 直接问法"
+  },
+  {
+    "question": "When judging an agent that browses and gathers information to do research, what aspects is it scored on?",
+    "expected_keywords": ["retrieval quality", "knowledge synthesis", "verifiability"],
+    "note": "2503.16416v2 benchmark 综述 | B 措辞偏离"
+  },
+
+  {
+    "question": "What is the core idea behind the X-MAS heterogeneous multi-agent system?",
+    "expected_keywords": ["X-MAS", "heterogeneous", "chatbot", "reasoner"],
+    "note": "2505.16997v1 X-MAS | A 直接问法"
+  },
+  {
+    "question": "Why might assigning different language models to different roles beat using one single model to drive the whole agent team?",
+    "expected_keywords": ["heterogeneous", "X-MAS", "single LLM", "reasoner"],
+    "note": "2505.16997v1 X-MAS | B 措辞偏离"
+  },
+
+  {
+    "question": "What reinforcement learning method does Agent Lightning introduce, and how does it handle trajectories?",
+    "expected_keywords": ["Agent Lightning", "LightningRL", "transition"],
+    "note": "2508.03680v1 Agent Lightning | A 直接问法"
+  },
+  {
+    "question": "How does that agent-training framework split a full execution run into smaller pieces for optimization?",
+    "expected_keywords": ["LightningRL", "transition", "trajector"],
+    "note": "2508.03680v1 Agent Lightning | B 措辞偏离"
   }
 ]

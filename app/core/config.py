@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # Retrieval strategy
     retrieval_mode: str = "simple"       # "simple" | "multi_query"
-    multi_query_count: int = 4
+    multi_query_count: int = 3
 
     # Chunking
     chunk_size: int = 500
