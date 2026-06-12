@@ -35,7 +35,8 @@ def test_agent_response_shape(client: TestClient):
 
 def test_agent_default_query_uses_search_tool(client: TestClient):
     data = client.post("/api/v1/agent/run", json={"user_query": "Tell me about databases"}).json()
-    assert data["selected_tool"] == "search_documents"
+    # loop 架构下 selected_tool 是结束状态；工具体现在 intermediate_steps 的 action
+    assert "search_documents" in [s["action"] for s in data["intermediate_steps"]]
 
 
 def test_agent_summarize_keyword_selects_summarize_tool(client: TestClient):
@@ -43,8 +44,8 @@ def test_agent_summarize_keyword_selects_summarize_tool(client: TestClient):
         "/api/v1/agent/run",
         json={"user_query": "请总结这篇文章", "document_ids": ["any-doc-id"]},
     ).json()
-    # Tool selection happens before execution; even if execution fails, selected_tool is set
-    assert data["selected_tool"] == "summarize_document"
+    # 即使工具执行失败，步骤里仍记录了被选中的工具
+    assert "summarize_document" in [s["action"] for s in data["intermediate_steps"]]
 
 
 def test_agent_compare_keyword_selects_compare_tool(client: TestClient):
@@ -52,7 +53,7 @@ def test_agent_compare_keyword_selects_compare_tool(client: TestClient):
         "/api/v1/agent/run",
         json={"user_query": "对比这两篇文档", "document_ids": ["id-1", "id-2"]},
     ).json()
-    assert data["selected_tool"] == "compare_documents"
+    assert "compare_documents" in [s["action"] for s in data["intermediate_steps"]]
 
 
 def test_agent_intermediate_steps_have_required_fields(client: TestClient):

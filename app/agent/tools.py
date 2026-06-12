@@ -14,6 +14,20 @@ def search_documents(query: str, top_k: int = 5) -> list[CitedChunk]:
     return [CitedChunk(**chunk) for chunk in chunks]
 
 
+def list_documents() -> list[dict]:
+    """列出库中所有已就绪（READY）的文档，供 agent 把用户的自然语言指代映射到真实 document_id。"""
+    db = SessionLocal()
+    try:
+        docs = document_repository.get_all(db)
+        return [
+            {"document_id": d.document_id, "filename": d.filename}
+            for d in docs
+            if d.status == "READY"
+        ]
+    finally:
+        db.close()
+
+
 def summarize_document(document_id: str) -> str:
     # 1. 查数据库
     db = SessionLocal()
@@ -38,7 +52,6 @@ def summarize_document(document_id: str) -> str:
     # 4. 返回
     return summary
     
-
 
 def compare_documents(document_ids: list[str]) -> str:
     if len(document_ids) < 2:
