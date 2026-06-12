@@ -2,7 +2,7 @@ from typing import Annotated, TypedDict
 from uuid import uuid4
 
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, trim_messages
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph
 from langgraph.graph.message import add_messages
@@ -86,9 +86,28 @@ TOOLS = [
     generate_markdown_notes,
 ]
 
+# ================= Checkpointer Factory =================
+def _make_checkpointer():
+    if settings.checkpoint_backend == "postgres":
+        from psycopg_pool import ConnectionPool
+        from langgraph.checkpoint.postgres import PostgresSaver
+
+        # 连接池: FastAPI 线程池并发请求各借各的连接（单 Connection 非线程安全）
+        pool = ConnectionPool(
+            conninfo=settings.database_url,
+            max_size=10,
+            kwargs={"autocommit": True, "prepare_threshold": 0},  # PostgresSaver 要求的连接参数
+        )
+        # 注解要求 DictRow 池，但 PostgresSaver 内部建 cursor 时自带 row_factory=dict_row，运行时无碍
+        checkpointer = PostgresSaver(pool)  # type: ignore[arg-type]
+        checkpointer.setup()    # 幂等建表; checkpoint 表由 langgraph 自治, 不入 Alembic
+        return checkpointer
+    return MemorySaver()
+
+
 # ================== Build ReAct Graph ===================
 
-def build_agent_graph(llm=None):
+def build_agent_graph(llm=None, checkpointer=None):
     # LLM 构建收在 build 内（而非模块级）：import 本文件不再有创建客户端的副作用
     if llm is None:
         llm = ChatOpenAI(
@@ -98,10 +117,23 @@ def build_agent_graph(llm=None):
             timeout=settings.llm_timeout,
             temperature=0,
         ).bind_tools(TOOLS)   # bind_tools 把 TOOLS 的 schema 告诉模型（= 手写版传 tools=TOOL_SCHEMAS）
-
+    
     def agent_node(state: AgentState) -> dict:
-        """调 LLM 决策：基于完整历史，返回 AIMessage（含 tool_calls 或最终答案）。闭包捕获 llm。"""
-        return {"messages": [llm.invoke(state["messages"])]}
+        """调 LLM 决策：返回 AIMessage（含 tool_calls 或最终答案）。闭包捕获 llm。
+
+        历史修剪只作用于「LLM 看到的窗口」——checkpointer 里仍保留完整历史。
+        长对话不修剪会撑爆上下文/token 成本；按条数裁（token_counter=len）避免引入 tokenizer。
+        """
+        window = trim_messages(
+            state["messages"],
+            strategy="last",                              # 保留最近的
+            token_counter=len,                            # 以消息条数计数
+            max_tokens=settings.agent_history_window,     # 此时语义 = 最大条数
+            start_on="human",   # 窗口必须从 human 开头：孤儿 ToolMessage 会让 OpenAI 报协议错
+            include_system=True,
+            allow_partial=False,
+        )
+        return {"messages": [llm.invoke(window)]}
 
     graph = StateGraph(AgentState)                          # 用 State 类型建图
 
@@ -113,7 +145,10 @@ def build_agent_graph(llm=None):
     graph.add_conditional_edges("agent", tools_condition)   # 条件边：有 tool_calls→"tools"，无→END
     graph.add_edge("tools", "agent")                        # 回边：工具执行完回到 agent（这就是「循环」！）
 
-    return graph.compile(checkpointer=MemorySaver())                                  # 编译成可调用的 app
+    # None 才造默认（按配置选 memory/postgres）；传入的注入值必须被尊重——单一出口
+    if checkpointer is None:
+        checkpointer = _make_checkpointer()
+    return graph.compile(checkpointer=checkpointer)
 
 
 # 懒加载单例：首次调用才编译图（创建 LLM 客户端），消除 import 副作用

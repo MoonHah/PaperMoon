@@ -34,6 +34,8 @@ class Settings(BaseSettings):
 
     # Agent
     agent_backend: str = "handwritten"   # "handwritten" | "langgraph"
+    checkpoint_backend: str = "memory"   # "memory" | "postgres" (postgres = 重启不失忆)
+    agent_history_window: int = 20       # 单次传给 LLM 的最大历史消息条数（完整历史仍存 checkpointer）
 
     # Chunking
     chunk_size: int = 500

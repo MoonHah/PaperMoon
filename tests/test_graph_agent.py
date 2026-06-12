@@ -47,6 +47,40 @@ def test_different_threads_are_isolated():
     assert len(result["messages"]) == 2
 
 
+class _RecordingLLM:
+    """包装假模型，记录每次 invoke 收到的消息条数——用于验证历史修剪。"""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.seen_lengths: list[int] = []
+
+    def invoke(self, messages):
+        self.seen_lengths.append(len(messages))
+        return self._inner.invoke(messages)
+
+
+def test_history_window_trims_llm_input_but_keeps_full_state(monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "agent_history_window", 4)   # 窗口收紧到 4 条便于观察
+
+    fake = GenericFakeChatModel(messages=iter(
+        [AIMessage(content=f"answer-{i}") for i in range(5)]
+    ))
+    recorder = _RecordingLLM(fake)
+    graph = build_agent_graph(llm=recorder)
+    cfg: RunnableConfig = {"configurable": {"thread_id": "t-trim"}}
+
+    result: dict = {}
+    for i in range(5):   # 聊 5 轮 → 完整历史 10 条，远超窗口
+        result = graph.invoke({"messages": [HumanMessage(content=f"问题{i}")]}, config=cfg)
+
+    # 存储侧：checkpointer 保留完整历史（10 条），修剪不动它
+    assert len(result["messages"]) == 10
+    # LLM 侧：每次 invoke 看到的消息数不超过窗口
+    assert max(recorder.seen_lengths) <= 4
+
+
 def test_run_returns_and_reuses_session_id(monkeypatch):
     fake = GenericFakeChatModel(messages=iter([
         AIMessage(content="answer-1"),
