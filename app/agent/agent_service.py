@@ -6,8 +6,8 @@ from app.agent.tool_schemas import TOOL_SCHEMAS
 from app.core.config import settings
 from app.services.llm_service import get_llm_service
 
+# ========================== 手写版 ReAct Agent =============================
 MAX_STEPS = 5   # 兜底防死循环
-
 
 def _execute_tool(name: str, args: dict, request: AgentRunRequest) -> tuple[str, list[CitedChunk]]:
     """执行单个工具，返回 (字符串结果, citations)。

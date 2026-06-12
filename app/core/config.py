@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     multi_query_count: int = 3
     retrieval_temperature: float = 0.0   # 含 LLM 的检索策略生成温度（0=可复现）
 
+    # Agent
+    agent_backend: str = "handwritten"   # "handwritten" | "langgraph"
+
     # Chunking
     chunk_size: int = 500
     chunk_overlap: int = 50

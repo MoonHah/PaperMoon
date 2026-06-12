@@ -8,6 +8,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: papermoon
       POSTGRES_DB: papermoon
+    ports:
+      - "5432:5432"   # 暴露给宿主机：本地脚本（eval/agent 验证）需要直连（同 qdrant 6333 的先例）
     volumes:
       - postgres_data:/var/lib/postgresql/data
     # healthcheck 让 api/worker 等到 postgres 真正可接受连接才启动
