@@ -1,4 +1,5 @@
 from typing import Annotated, TypedDict
+from uuid import uuid4
 
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
@@ -12,6 +13,7 @@ from app.agent import tools as _impl    # 复用现有工具实现
 from app.core.config import settings
 
 from app.agent.schemas import AgentRunRequest, AgentRunResponse, IntermediateStep
+from langgraph.checkpoint.memory import MemorySaver # for checkpointer
 
 # ========================== LangGraph版 ReAct Agent =============================
 
@@ -86,15 +88,16 @@ TOOLS = [
 
 # ================== Build ReAct Graph ===================
 
-def build_agent_graph():
+def build_agent_graph(llm=None):
     # LLM 构建收在 build 内（而非模块级）：import 本文件不再有创建客户端的副作用
-    llm = ChatOpenAI(
-        model=settings.llm_model,
-        api_key=SecretStr(settings.openai_api_key),
-        base_url=settings.openai_base_url,
-        timeout=settings.llm_timeout,
-        temperature=0,
-    ).bind_tools(TOOLS)   # bind_tools 把 TOOLS 的 schema 告诉模型（= 手写版传 tools=TOOL_SCHEMAS）
+    if llm is None:
+        llm = ChatOpenAI(
+            model=settings.llm_model,
+            api_key=SecretStr(settings.openai_api_key),
+            base_url=settings.openai_base_url,
+            timeout=settings.llm_timeout,
+            temperature=0,
+        ).bind_tools(TOOLS)   # bind_tools 把 TOOLS 的 schema 告诉模型（= 手写版传 tools=TOOL_SCHEMAS）
 
     def agent_node(state: AgentState) -> dict:
         """调 LLM 决策：基于完整历史，返回 AIMessage（含 tool_calls 或最终答案）。闭包捕获 llm。"""
@@ -110,7 +113,7 @@ def build_agent_graph():
     graph.add_conditional_edges("agent", tools_condition)   # 条件边：有 tool_calls→"tools"，无→END
     graph.add_edge("tools", "agent")                        # 回边：工具执行完回到 agent（这就是「循环」！）
 
-    return graph.compile()                                  # 编译成可调用的 app
+    return graph.compile(checkpointer=MemorySaver())                                  # 编译成可调用的 app
 
 
 # 懒加载单例：首次调用才编译图（创建 LLM 客户端），消除 import 副作用
@@ -128,11 +131,15 @@ def get_agent_graph():
 
 def run(request: AgentRunRequest) -> AgentRunResponse:
     """跑 LangGraph agent，返回与手写版一致的 AgentRunResponse（API 契约不因后端实现而变）。"""
+    session_id = request.session_id or str(uuid4())
     try:
         # invoke 从入口跑到 END，自动驱动 agent↔tools 循环，返回跑完的完整 state
         result = get_agent_graph().invoke(
             {"messages": [HumanMessage(content=request.user_query)]},
-            config={"recursion_limit": 10},   # 兜底防死循环（≈ 手写版 MAX_STEPS）
+            config={
+                "configurable": {"thread_id": session_id},  # 绑定会话
+                "recursion_limit": 10,
+                },   # 兜底防死循环（≈ 手写版 MAX_STEPS）
         )
     except Exception as e:
         return AgentRunResponse(
@@ -140,16 +147,19 @@ def run(request: AgentRunRequest) -> AgentRunResponse:
             selected_tool="(error)",
             intermediate_steps=[],
             error=str(e),
+            session_id=session_id
         )
 
     # 完整历史：Human → AI(tool_calls) → Tool → … → AI(最终答案)
     messages = result["messages"]
+    last_human = max(i for i, m in enumerate(messages) if isinstance(m, HumanMessage))
+    current_turn = messages[last_human:]
 
     # 把历史里的 tool_calls 翻译成 IntermediateStep（与手写版的轨迹格式对齐）
     steps = [
         IntermediateStep(step=i + 1, action=tc["name"], detail=str(tc.get("args", {})), status="ok")
         for i, tc in enumerate(
-            tc for m in messages for tc in (getattr(m, "tool_calls", None) or [])
+            tc for m in current_turn for tc in (getattr(m, "tool_calls", None) or [])
         )
     ]
 
@@ -159,4 +169,5 @@ def run(request: AgentRunRequest) -> AgentRunResponse:
         intermediate_steps=steps,
         # 局限：ToolNode 把工具结果压成字符串，citations 的结构化信息无法回收——框架封装的代价
         citations=[],
+        session_id=session_id
     )

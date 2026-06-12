@@ -10,6 +10,7 @@ class CitedChunk(BaseModel):
 class AgentRunRequest(BaseModel):
     user_query: str
     document_ids: list[str] = Field(default=[])
+    session_id: str | None = Field(default=None)
 
 
 class IntermediateStep(BaseModel):
@@ -25,3 +26,4 @@ class AgentRunResponse(BaseModel):
     intermediate_steps: list[IntermediateStep]
     citations: list[CitedChunk] = Field(default=[])
     error: str | None = None
+    session_id: str | None = Field(default=None)
