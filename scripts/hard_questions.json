@@ -1,0 +1,52 @@
+[
+  {
+    "question": "GRPO",
+    "expected_keywords": ["GRPO"],
+    "note": "单缩写、零语义上下文——向量弱、BM25 精确匹配强"
+  },
+  {
+    "question": "SKILL.md",
+    "expected_keywords": ["SKILL.md"],
+    "note": "代码/文件名符号，含点号"
+  },
+  {
+    "question": "42,447",
+    "expected_keywords": ["42,447", "42447"],
+    "note": "精确数字串（社区技能总数）"
+  },
+  {
+    "question": "T4 vendor-certified",
+    "expected_keywords": ["T4", "vendor"],
+    "note": "精确分层标签（信任分层最高级）"
+  },
+  {
+    "question": "LightningRL",
+    "expected_keywords": ["LightningRL"],
+    "note": "罕见方法名（Agent Lightning 的 RL 算法）"
+  },
+  {
+    "question": "AppWorld",
+    "expected_keywords": ["AppWorld"],
+    "note": "专名基准（SAGE 实验环境）"
+  },
+  {
+    "question": "OSWorld",
+    "expected_keywords": ["OSWorld"],
+    "note": "专名基准（SEAgent 实验环境）"
+  },
+  {
+    "question": "BEARCUBS",
+    "expected_keywords": ["BEARCUBS"],
+    "note": "专名 benchmark"
+  },
+  {
+    "question": "X-MAS-Bench",
+    "expected_keywords": ["X-MAS-Bench", "X-MAS"],
+    "note": "带连字符的复合专名"
+  },
+  {
+    "question": "SWE-bench Verified Pro",
+    "expected_keywords": ["SWE-bench"],
+    "note": "带连字符 + 版本词的 benchmark 名"
+  }
+]

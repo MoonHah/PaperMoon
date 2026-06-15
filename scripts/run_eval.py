@@ -167,7 +167,15 @@ def main() -> None:
         default=1,
         help="重复运行次数；>1 时报告 mean±std（默认 1）",
     )
+    parser.add_argument(
+        "--rerank",
+        action="store_true",
+        help="开启 LLM 重排（正交叠加在 --retrieval-mode 之上）",
+    )
     args = parser.parse_args()
+
+    if args.rerank:
+        settings.rerank_enabled = True   # 正交开关：get_retriever 会据此包一层 RerankRetriever
 
     if not args.questions.exists():
         print(f"ERROR: 找不到问题集文件：{args.questions}")
