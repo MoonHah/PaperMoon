@@ -1,69 +1,44 @@
-"""
-Agent integration tests.
+"""Agent 端点集成测试：验证 POST /api/v1/agent/run 的 HTTP 契约。
 
-search_documents is the default tool and works with the mock vector store.
-summarize_document/compare_documents use SessionLocal directly; we patch it to SQLite
-so tests stay isolated and don't attempt a real PostgreSQL connection.
+Agent 内部逻辑（多轮记忆 / 引用回收 / 历史修剪）由 test_graph_agent.py 覆盖；
+这里只用假模型图打通端点，避免真实 ChatOpenAI，验证响应 schema。
 """
 
 import pytest
 from fastapi.testclient import TestClient
+from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+from langchain_core.messages import AIMessage
 
-import app.agent.tools as _tools_mod
-from tests.conftest import _TestSession
+import app.agent.graph_agent as graph_agent
+from app.agent.graph_agent import build_agent_graph
 
 
 @pytest.fixture(autouse=True)
-def _patch_tools_session(monkeypatch):
-    """Patch SessionLocal inside agent/tools.py to use SQLite."""
-    monkeypatch.setattr(_tools_mod, "SessionLocal", _TestSession)
+def _fake_agent_graph(monkeypatch):
+    # 用假 LLM 图替换懒加载单例：端点 → graph_agent.run → 此图，不触发真实 ChatOpenAI。
+    fake = GenericFakeChatModel(messages=iter([AIMessage(content="[FAKE] answer")]))
+    monkeypatch.setattr(graph_agent, "_graph", build_agent_graph(llm=fake))
 
 
 def test_agent_run_returns_200(client: TestClient):
-    response = client.post("/api/v1/agent/run", json={"user_query": "What is Python?"})
-    assert response.status_code == 200
+    resp = client.post("/api/v1/agent/run", json={"user_query": "什么是 RAG？"})
+    assert resp.status_code == 200
 
 
 def test_agent_response_shape(client: TestClient):
-    data = client.post("/api/v1/agent/run", json={"user_query": "What is Python?"}).json()
-    assert "final_answer" in data
+    data = client.post("/api/v1/agent/run", json={"user_query": "hi"}).json()
+    assert data["final_answer"] == "[FAKE] answer"
     assert "selected_tool" in data
-    assert "intermediate_steps" in data
     assert isinstance(data["intermediate_steps"], list)
-    assert len(data["intermediate_steps"]) > 0
-
-
-def test_agent_default_query_uses_search_tool(client: TestClient):
-    data = client.post("/api/v1/agent/run", json={"user_query": "Tell me about databases"}).json()
-    # loop 架构下 selected_tool 是结束状态；工具体现在 intermediate_steps 的 action
-    assert "search_documents" in [s["action"] for s in data["intermediate_steps"]]
-
-
-def test_agent_summarize_keyword_selects_summarize_tool(client: TestClient):
-    data = client.post(
-        "/api/v1/agent/run",
-        json={"user_query": "请总结这篇文章", "document_ids": ["any-doc-id"]},
-    ).json()
-    # 即使工具执行失败，步骤里仍记录了被选中的工具
-    assert "summarize_document" in [s["action"] for s in data["intermediate_steps"]]
-
-
-def test_agent_compare_keyword_selects_compare_tool(client: TestClient):
-    data = client.post(
-        "/api/v1/agent/run",
-        json={"user_query": "对比这两篇文档", "document_ids": ["id-1", "id-2"]},
-    ).json()
-    assert "compare_documents" in [s["action"] for s in data["intermediate_steps"]]
-
-
-def test_agent_intermediate_steps_have_required_fields(client: TestClient):
-    data = client.post("/api/v1/agent/run", json={"user_query": "hello"}).json()
-    for step in data["intermediate_steps"]:
-        assert "step" in step
-        assert "action" in step
-        assert "status" in step
-
-
-def test_agent_citations_is_list(client: TestClient):
-    data = client.post("/api/v1/agent/run", json={"user_query": "anything"}).json()
     assert isinstance(data.get("citations", []), list)
+    assert data["session_id"]  # langgraph 总会返回 session_id
+
+
+def test_agent_reuses_session_id(client: TestClient):
+    # 带上一轮的 session_id 续聊，服务端应回显同一个
+    sid = "fixed-session-1"
+    data = client.post(
+        "/api/v1/agent/run",
+        json={"user_query": "hi", "session_id": sid},
+    ).json()
+    assert data["session_id"] == sid

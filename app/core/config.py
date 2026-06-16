@@ -32,8 +32,7 @@ class Settings(BaseSettings):
     multi_query_count: int = 3
     retrieval_temperature: float = 0.0   # 含 LLM 的检索策略生成温度（0=可复现）
 
-    # Agent
-    agent_backend: str = "handwritten"   # "handwritten" | "langgraph"
+    # Agent（统一为 LangGraph 后端）
     checkpoint_backend: str = "memory"   # "memory" | "postgres" (postgres = 重启不失忆)
     agent_history_window: int = 20       # 单次传给 LLM 的最大历史消息条数（完整历史仍存 checkpointer）
 
