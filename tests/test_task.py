@@ -39,7 +39,8 @@ def task_env(tmp_path, monkeypatch, db_session):
     # 4. Pre-create a document record in SQLite
     doc_id = "task-test-doc-001"
     document_repository.create(
-        db_session, document_id=doc_id, filename="sample.txt", file_type=".txt"
+        db_session, document_id=doc_id, user_id="task-test-user",
+        filename="sample.txt", file_type=".txt"
     )
     db_session.commit()
 

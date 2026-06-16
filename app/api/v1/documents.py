@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.security import get_current_user
+from app.models.user import User
 from app.repositories import document_repository
 from app.schemas.document import (
     DocumentContentResponse,
@@ -24,39 +26,57 @@ ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf"}
 
 
 @router.get("/", response_model=list[DocumentResponse])
-def list_documents(session: Session = Depends(get_db)):
-    return document_repository.get_all(session)
+def list_documents(
+    session: Session = Depends(get_db), user: User = Depends(get_current_user)
+):
+    return document_repository.get_all_by_user(session, user.id)
 
 
 @router.get("/{document_id}/status", response_model=DocumentStatusResponse)
-def get_document_status(document_id: str, session: Session = Depends(get_db)):
-    doc = document_repository.get_by_id(session, document_id=document_id)
+def get_document_status(
+    document_id: str,
+    session: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    doc = document_repository.get_owned(session, user.id, document_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found.")
     return doc
 
 
 @router.get("/{document_id}/content", response_model=DocumentContentResponse)
-def get_document_content(document_id: str, session: Session = Depends(get_db)):
-    # 取正文：读索引时持久化的解析文件，旧文档懒回填重解析（见 document_service.get_content）。
-    filename, content = document_service.get_content(session, document_id)
+def get_document_content(
+    document_id: str,
+    session: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # 取正文：归属校验 + 读持久化解析文件（旧文档懒回填重解析）。
+    filename, content = document_service.get_content(session, user.id, document_id)
     return DocumentContentResponse(
         document_id=document_id, filename=filename, content=content
     )
 
 
 @router.post("/{document_id}/notes", response_model=DocumentNotesResponse)
-def generate_document_notes(document_id: str, session: Session = Depends(get_db)):
+def generate_document_notes(
+    document_id: str,
+    session: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     # 确定性地为单篇文档生成笔记（按 document_id 锁定，喂全文）——不走 Agent，避免指代歧义。
-    filename, notes = document_service.generate_notes(session, document_id)
+    filename, notes = document_service.generate_notes(session, user.id, document_id)
     return DocumentNotesResponse(
         document_id=document_id, filename=filename, notes=notes
     )
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
-def get_document(document_id: str, session: Session = Depends(get_db)):
-    doc = document_repository.get_by_id(session, document_id=document_id)
+def get_document(
+    document_id: str,
+    session: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    doc = document_repository.get_owned(session, user.id, document_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found.")
     return doc
@@ -66,6 +86,7 @@ def get_document(document_id: str, session: Session = Depends(get_db)):
 async def upload_document(
     file: UploadFile = File(...),
     session: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     # —— HTTP 层职责：请求合法性校验 ——
     if not file.filename:
@@ -90,7 +111,7 @@ async def upload_document(
             raise HTTPException(status_code=400, detail="File must be UTF-8 encoded.")
 
     # —— 业务编排下沉到 service 层 ——
-    doc = document_service.ingest(session, file.filename, suffix, content_bytes)
+    doc = document_service.ingest(session, user.id, file.filename, suffix, content_bytes)
 
     return DocumentUploadResponse(
         document_id=doc.document_id,

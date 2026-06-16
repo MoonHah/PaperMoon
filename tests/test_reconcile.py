@@ -15,6 +15,7 @@ def _make_doc(db, doc_id: str, status: DocumentStatus, minutes_ago: int) -> None
     db.add(
         Document(
             document_id=doc_id,
+            user_id="reconcile-test-user",
             filename="x.pdf",
             file_type=".pdf",
             status=status.value,

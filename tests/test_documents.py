@@ -4,6 +4,32 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 
+def _auth_headers(anon_client: TestClient, email: str) -> dict:
+    creds = {"email": email, "password": "secret123"}
+    anon_client.post("/api/v1/auth/register", json=creds)
+    token = anon_client.post("/api/v1/auth/login", json=creds).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_documents_are_isolated_per_user(anon_client: TestClient):
+    # 用户 A 上传文档；用户 B 既看不到、也无法按 id 访问 → 多租户隔离
+    a = _auth_headers(anon_client, "a@iso.com")
+    b = _auth_headers(anon_client, "b@iso.com")
+
+    up = anon_client.post(
+        "/api/v1/documents/upload", files=[_txt_file(content="A's secret", name="a.txt")], headers=a
+    ).json()
+    a_doc_id = up["document_id"]
+
+    # B 的列表为空
+    assert anon_client.get("/api/v1/documents/", headers=b).json() == []
+    # B 直接拿 A 的 doc_id → 404
+    assert anon_client.get(f"/api/v1/documents/{a_doc_id}", headers=b).status_code == 404
+    assert anon_client.get(f"/api/v1/documents/{a_doc_id}/status", headers=b).status_code == 404
+    # A 自己能看到
+    assert len(anon_client.get("/api/v1/documents/", headers=a).json()) == 1
+
+
 def _txt_file(content: str = "Hello world.", name: str = "test.txt"):
     return ("file", (name, content.encode(), "text/plain"))
 

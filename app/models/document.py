@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, Text, DateTime
+from sqlalchemy import String, Integer, Text, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
@@ -19,6 +19,8 @@ class Document(Base):
     __tablename__ = "documents"
 
     document_id: Mapped[str] = mapped_column(String, primary_key=True)
+    # 归属用户：多租户隔离的核心字段（每篇文档只属于一个用户）
+    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False, index=True)
     filename: Mapped[str] = mapped_column(String, nullable=False)
     file_type: Mapped[str] = mapped_column(String, nullable=False)
     # 文件内容的 sha256 指纹，用于上传去重（幂等）；历史记录为 NULL 故 nullable

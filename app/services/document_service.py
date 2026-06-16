@@ -25,15 +25,17 @@ _NOTES_PROMPT = (
 )
 
 
-def ingest(session: Session, filename: str, suffix: str, content_bytes: bytes) -> Document:
+def ingest(
+    session: Session, user_id: str, filename: str, suffix: str, content_bytes: bytes
+) -> Document:
     """文档入库编排：内容指纹去重 → 落盘 → 建记录 → 投递索引任务。
 
     返回最终的 Document（命中去重时为已存在记录，否则为新建记录）。
-    HTTP 层只负责请求校验与响应组装，业务编排集中在此。
+    去重按用户隔离；HTTP 层只负责请求校验与响应组装，业务编排集中在此。
     """
-    # 内容指纹去重：同内容已存在（成功或处理中）则幂等复用，避免重复入库污染向量库
+    # 内容指纹去重：同用户、同内容已存在（成功或处理中）则幂等复用
     content_hash = hashlib.sha256(content_bytes).hexdigest()
-    existing = document_repository.get_by_content_hash(session, content_hash)
+    existing = document_repository.get_by_content_hash(session, content_hash, user_id)
     if existing is not None:
         logger.info(
             "Duplicate upload detected (content_hash=%s), reusing document %s",
@@ -53,6 +55,7 @@ def ingest(session: Session, filename: str, suffix: str, content_bytes: bytes) -
     doc = document_repository.create(
         session=session,
         document_id=document_id,
+        user_id=user_id,
         filename=filename,
         file_type=suffix,
         content_hash=content_hash,
@@ -111,9 +114,9 @@ def load_text(session: Session, document_id: str) -> str:
         raise ValueError(f"Document {document_id} content unavailable.")
 
 
-def get_content(session: Session, document_id: str) -> tuple[str, str]:
-    """返回 (filename, 解析后的正文)。供阅读接口使用（READY 校验 + AppError）。"""
-    doc = document_repository.get_by_id(session, document_id)
+def get_content(session: Session, user_id: str, document_id: str) -> tuple[str, str]:
+    """返回 (filename, 解析后的正文)。供阅读接口使用（归属 + READY 校验 + AppError）。"""
+    doc = document_repository.get_owned(session, user_id, document_id)
     if doc is None:
         raise AppError(error_code="NOT_FOUND", message="Document not found.", status_code=404)
     if doc.status != DocumentStatus.READY.value:
@@ -132,13 +135,13 @@ def get_content(session: Session, document_id: str) -> tuple[str, str]:
         )
 
 
-def generate_notes(session: Session, document_id: str) -> tuple[str, str]:
+def generate_notes(session: Session, user_id: str, document_id: str) -> tuple[str, str]:
     """为单篇文档生成 Markdown 学习笔记，返回 (filename, notes)。
 
     确定性操作：按 document_id 精确锁定、喂全文给 LLM（区别于 Agent 通用对话——
     后者忽略 document_ids，且 generate_markdown_notes 工具只按 query 全库检索）。
     """
-    filename, content = get_content(session, document_id)
+    filename, content = get_content(session, user_id, document_id)
     llm = get_llm_service(settings)
     notes = llm.chat(_NOTES_PROMPT, context_chunks=[content])
     return filename, notes

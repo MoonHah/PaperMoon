@@ -12,12 +12,14 @@ _TERMINAL_STATUSES = (DocumentStatus.READY.value, DocumentStatus.FAILED.value)
 def create(
     session: Session,
     document_id: str,
+    user_id: str,
     filename: str,
     file_type: str,
     content_hash: str | None = None,
 ) -> Document:
     doc = Document(
         document_id=document_id,
+        user_id=user_id,
         filename=filename,
         file_type=file_type,
         content_hash=content_hash,
@@ -34,21 +36,32 @@ def get_by_id(session: Session, document_id: str) -> Document | None:
     return result
 
 
-def get_by_content_hash(session: Session, content_hash: str) -> Document | None:
-    """按内容指纹查找已存在的文档（用于上传去重）。
+def get_owned(session: Session, user_id: str, document_id: str) -> Document | None:
+    """按归属取文档：仅当文档属于该用户才返回，否则 None（多租户访问控制）。"""
+    stmt = select(Document).where(
+        Document.document_id == document_id,
+        Document.user_id == user_id,
+    )
+    return session.execute(stmt).scalar_one_or_none()
 
-    只匹配未失败的记录：之前 FAILED 的同内容文件应允许重新上传重试，
-    不能被失败记录挡住。正常情况下同一 content_hash 至多一条非失败记录。
+
+def get_by_content_hash(
+    session: Session, content_hash: str, user_id: str
+) -> Document | None:
+    """按内容指纹查找该用户已存在的文档（用于上传去重，按用户隔离）。
+
+    只匹配未失败的记录：之前 FAILED 的同内容文件应允许重新上传重试。
     """
     stmt = select(Document).where(
         Document.content_hash == content_hash,
+        Document.user_id == user_id,
         Document.status != DocumentStatus.FAILED.value,
     )
     return session.execute(stmt).scalars().first()
 
 
-def get_all(session: Session) -> list[Document]:
-    stmt = select(Document)
+def get_all_by_user(session: Session, user_id: str) -> list[Document]:
+    stmt = select(Document).where(Document.user_id == user_id)
     return list(session.execute(stmt).scalars().all())
 
 

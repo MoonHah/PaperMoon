@@ -155,12 +155,10 @@ def db_session() -> Generator[Session, None, None]:
 
 
 @pytest.fixture
-def client(mock_store, tmp_storage) -> Generator[TestClient, None, None]:
-    """
-    TestClient wired to:
-    - SQLite (via dependency_overrides[get_db])
-    - InMemoryVectorStore (via mock_store, which sets _vs_module._instance)
-    - Temp file storage (via tmp_storage)
+def anon_client(mock_store, tmp_storage) -> Generator[TestClient, None, None]:
+    """未认证 TestClient（认证流程 / 401 用例）。
+
+    Wired to: SQLite (dependency_overrides[get_db]) + InMemoryVectorStore + 临时文件存储。
     """
 
     def _get_db_override() -> Generator[Session, None, None]:
@@ -174,3 +172,17 @@ def client(mock_store, tmp_storage) -> Generator[TestClient, None, None]:
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(anon_client: TestClient) -> TestClient:
+    """默认已登录的 TestClient：注册一个测试用户并带上 Bearer 头。
+
+    本应用几乎所有业务端点都需登录，故默认 client 即认证态；
+    认证流程本身与 401 用例改用 anon_client。
+    """
+    creds = {"email": "tester@example.com", "password": "secret123"}
+    anon_client.post("/api/v1/auth/register", json=creds)
+    token = anon_client.post("/api/v1/auth/login", json=creds).json()["access_token"]
+    anon_client.headers.update({"Authorization": f"Bearer {token}"})
+    return anon_client
