@@ -101,11 +101,11 @@ def _read_text(document_id: str, file_type: str) -> str:
     return content
 
 
-def load_text(session: Session, document_id: str) -> str:
-    """按 document_id 取正文（供 Agent 工具复用）。找不到/无内容时抛 ValueError——
-    与工具层既有错误约定一致（ToolNode / 手写循环会捕获成工具错误回填）。
+def load_text(session: Session, user_id: str | None, document_id: str) -> str:
+    """按 document_id 取正文（供 Agent 工具复用，按用户归属校验）。
+    找不到/非属主/无内容时抛 ValueError——与工具层错误约定一致（会被捕获成工具错误回填）。
     """
-    doc = document_repository.get_by_id(session, document_id)
+    doc = document_repository.get_owned(session, user_id, document_id) if user_id else None
     if doc is None:
         raise ValueError(f"Document {document_id} not found.")
     try:

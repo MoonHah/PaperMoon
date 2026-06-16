@@ -90,11 +90,11 @@ def test_run_returns_and_reuses_session_id(monkeypatch):
     monkeypatch.setattr(graph_agent, "_graph", build_agent_graph(llm=fake))
 
     # 第一次不传 session_id → 服务端生成并返回
-    resp1 = graph_agent.run(AgentRunRequest(user_query="第一问"))
+    resp1 = graph_agent.run(AgentRunRequest(user_query="第一问"), "u1")
     assert resp1.session_id is not None
 
     # 带着它续聊 → 返回同一个 id，且第二轮能看到第一轮的回答（历史共享）
-    resp2 = graph_agent.run(AgentRunRequest(user_query="第二问", session_id=resp1.session_id))
+    resp2 = graph_agent.run(AgentRunRequest(user_query="第二问", session_id=resp1.session_id), "u1")
     assert resp2.session_id == resp1.session_id
     assert resp2.final_answer == "answer-2"
 
@@ -123,7 +123,7 @@ def test_run_recovers_citations_from_search(monkeypatch):
     ]))
     monkeypatch.setattr(graph_agent, "_graph", build_agent_graph(llm=fake))
 
-    resp = graph_agent.run(AgentRunRequest(user_query="问题"))
+    resp = graph_agent.run(AgentRunRequest(user_query="问题"), "u1")
 
     assert resp.final_answer == "最终答案"
     # content_and_artifact 回收 + 去重：3 条片段去重后剩 2 条

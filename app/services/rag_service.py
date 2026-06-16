@@ -15,10 +15,13 @@ def _ensure_documents_exist() -> None:
         raise ValueError("No documents uploaded yet.")
 
 
-def _retrieve(query: str, top_k: int) -> tuple[list[str], float]:
+def _retrieve(query: str, top_k: int, user_id: str) -> tuple[list[str], float]:
     """检索 + 计时，返回 (chunk 文本列表, 检索耗时 ms)。chat / stream_chat 共用。"""
     t = time.perf_counter()
-    chunks = [c["text"] for c in get_retriever(settings).retrieve(query, top_k=top_k)]
+    chunks = [
+        c["text"]
+        for c in get_retriever(settings).retrieve(query, top_k=top_k, user_id=user_id)
+    ]
     latency_ms = round((time.perf_counter() - t) * 1000, 2)
     return chunks, latency_ms
 
@@ -27,11 +30,11 @@ def _model_label() -> str:
     return settings.llm_model if settings.llm_mode == "openai" else "mock"
 
 
-def chat(query: str, top_k: int = 3) -> dict:
+def chat(query: str, top_k: int, user_id: str) -> dict:
     _ensure_documents_exist()
     t_start = time.perf_counter()
 
-    retrieved_chunks, retrieval_latency_ms = _retrieve(query, top_k)
+    retrieved_chunks, retrieval_latency_ms = _retrieve(query, top_k, user_id)
 
     t_llm = time.perf_counter()
     answer = get_llm_service(settings).chat(query, retrieved_chunks)
@@ -51,11 +54,11 @@ def chat(query: str, top_k: int = 3) -> dict:
     return {"answer": answer, "retrieved_chunks": retrieved_chunks}
 
 
-def stream_chat(query: str, top_k: int = 3) -> Iterator[str]:
+def stream_chat(query: str, top_k: int, user_id: str) -> Iterator[str]:
     _ensure_documents_exist()
     t_start = time.perf_counter()
 
-    retrieved_chunks, retrieval_latency_ms = _retrieve(query, top_k)
+    retrieved_chunks, retrieval_latency_ms = _retrieve(query, top_k, user_id)
 
     t_llm = time.perf_counter()
     yield from get_llm_service(settings).stream_chat(query, retrieved_chunks)

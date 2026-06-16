@@ -43,14 +43,14 @@ class MultiQueryRetriever:
         # 3. 合并 query 并去重（保序）
         return list(dict.fromkeys([query, *rewrites]))
 
-    def retrieve(self, query: str, top_k: int) -> list[dict]:
+    def retrieve(self, query: str, top_k: int, user_id: str | None = None) -> list[dict]:
         queries = self._rewrite(query)
 
         # 1. 多路检索
         results_per_query = []
         for q in queries:
             embedding = self._embed_client.embed(q)
-            hits = self._vector_store.search_with_metadata(embedding, top_k=top_k)
+            hits = self._vector_store.search_with_metadata(embedding, top_k=top_k, user_id=user_id)
             results_per_query.append(hits)
 
         # 2. round-robin 合并去重截断

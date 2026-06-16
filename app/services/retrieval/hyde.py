@@ -28,9 +28,9 @@ class HyDERetriever:
         except Exception:
             return ""
 
-    def retrieve(self, query: str, top_k: int) -> list[dict]:
+    def retrieve(self, query: str, top_k: int, user_id: str | None = None) -> list[dict]:
         hypothesis = self._generate_hypothesis(query)
         # 假设答案为空（mock 或生成失败）时退回原 query 检索 = simple 行为，绝不崩
         text_to_embed = hypothesis if hypothesis else query
         embedding = self._embed_client.embed(text_to_embed)
-        return self._vector_store.search_with_metadata(embedding, top_k=top_k)
+        return self._vector_store.search_with_metadata(embedding, top_k=top_k, user_id=user_id)

@@ -15,7 +15,7 @@ class _FakeBase:
             {"text": f"doc-{i}", "document_id": str(i), "filename": "f"} for i in range(n)
         ]
 
-    def retrieve(self, query: str, top_k: int) -> list[dict]:
+    def retrieve(self, query: str, top_k: int, user_id: str | None = None) -> list[dict]:
         return self._docs[:top_k]
 
 

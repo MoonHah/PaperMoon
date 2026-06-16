@@ -11,6 +11,7 @@ from pydantic import SecretStr
 
 from app.agent import tools as _impl    # 复用现有工具实现
 from app.core.config import settings
+from app.core.context import reset_current_user_id, set_current_user_id
 
 from app.agent.schemas import AgentRunRequest, AgentRunResponse, CitedChunk, IntermediateStep
 from langgraph.checkpoint.memory import MemorySaver # for checkpointer
@@ -180,15 +181,21 @@ def get_agent_graph():
 
 # =================== Run Agent Service ====================
 
-def run(request: AgentRunRequest) -> AgentRunResponse:
-    """跑 LangGraph agent，返回与手写版一致的 AgentRunResponse（API 契约不因后端实现而变）。"""
+def run(request: AgentRunRequest, user_id: str) -> AgentRunResponse:
+    """跑 LangGraph agent，返回与手写版一致的 AgentRunResponse（API 契约不因后端实现而变）。
+
+    user_id：经 contextvar 注入，供工具按用户隔离检索/列表/归属校验；
+    thread_id 也用 user 命名空间，防跨用户猜 session。
+    """
     session_id = request.session_id or str(uuid4())
+    thread_id = f"{user_id}:{session_id}"   # 会话按用户隔离
+    token = set_current_user_id(user_id)
     try:
         # invoke 从入口跑到 END，自动驱动 agent↔tools 循环，返回跑完的完整 state
         result = get_agent_graph().invoke(
             {"messages": [HumanMessage(content=request.user_query)]},
             config={
-                "configurable": {"thread_id": session_id},  # 绑定会话
+                "configurable": {"thread_id": thread_id},  # 绑定会话（按用户命名空间）
                 "recursion_limit": 10,
                 },   # 兜底防死循环（≈ 手写版 MAX_STEPS）
         )
@@ -200,6 +207,8 @@ def run(request: AgentRunRequest) -> AgentRunResponse:
             error=str(e),
             session_id=session_id
         )
+    finally:
+        reset_current_user_id(token)
 
     # 完整历史：Human → AI(tool_calls) → Tool → … → AI(最终答案)
     messages = result["messages"]

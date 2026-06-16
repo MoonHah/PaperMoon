@@ -59,7 +59,10 @@ class InMemoryVectorStore:
         filename: str,
         chunks: list[str],
         embeddings: list[list[float]],
+        user_id: str = "test-user",
     ) -> None:
+        # user_id 设默认值，方便测试用关键字调用；单元测试不验证向量层的多租户过滤
+        # （文档归属隔离由 test_documents 覆盖，检索隔离在真实 Qdrant 端到端验证）。
         for chunk in chunks:
             self._docs.append(
                 {"document_id": document_id, "filename": filename, "chunk_text": chunk}
@@ -72,8 +75,9 @@ class InMemoryVectorStore:
         return [d["chunk_text"] for d in self._docs[:top_k]]
 
     def search_with_metadata(
-        self, query_embedding: list[float], top_k: int
+        self, query_embedding: list[float], top_k: int, user_id: str | None = None
     ) -> list[dict]:
+        # 忽略 user_id 过滤（见 upsert 注释）：保持检索 mechanics 测试不受多租户影响
         return [
             {
                 "text": d["chunk_text"],

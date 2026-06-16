@@ -1,22 +1,29 @@
 from app.agent.schemas import CitedChunk
 from app.core.config import settings
+from app.core.context import get_current_user_id
 from app.core.database import SessionLocal
 from app.repositories import document_repository
 from app.services import document_service
 from app.services.llm_service import get_llm_service
 from app.services.retrieval import get_retriever
 
+# 工具均由 graph_agent.run 在设置好 current_user_id contextvar 后经 Agent 调用，
+# 因此这里读 contextvar 即可拿到当前用户，做按用户隔离（检索/列表/归属校验）。
+
 
 def search_documents(query: str, top_k: int = 5) -> list[CitedChunk]:
-    chunks = get_retriever(settings).retrieve(query, top_k=top_k)
+    chunks = get_retriever(settings).retrieve(query, top_k=top_k, user_id=get_current_user_id())
     return [CitedChunk(**chunk) for chunk in chunks]
 
 
 def list_documents() -> list[dict]:
-    """列出库中所有已就绪（READY）的文档，供 agent 把用户的自然语言指代映射到真实 document_id。"""
+    """列出当前用户已就绪（READY）的文档，供 agent 把自然语言指代映射到真实 document_id。"""
+    user_id = get_current_user_id()
+    if user_id is None:
+        return []
     db = SessionLocal()
     try:
-        docs = document_repository.get_all(db)
+        docs = document_repository.get_all_by_user(db, user_id)
         return [
             {"document_id": d.document_id, "filename": d.filename}
             for d in docs
@@ -29,7 +36,7 @@ def list_documents() -> list[dict]:
 def summarize_document(document_id: str) -> str:
     db = SessionLocal()
     try:
-        content = document_service.load_text(db, document_id)
+        content = document_service.load_text(db, get_current_user_id(), document_id)
     finally:
         db.close()
 
@@ -44,9 +51,10 @@ def compare_documents(document_ids: list[str]) -> str:
     if len(document_ids) < 2:
         raise ValueError("Compare needs at least 2 documents!")
 
+    user_id = get_current_user_id()
     db = SessionLocal()
     try:
-        contents = [document_service.load_text(db, doc_id) for doc_id in document_ids]
+        contents = [document_service.load_text(db, user_id, doc_id) for doc_id in document_ids]
     finally:
         db.close()
 

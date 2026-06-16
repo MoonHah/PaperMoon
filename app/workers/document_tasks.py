@@ -87,6 +87,7 @@ def process_document(self, document_id: str) -> dict:
         vector_store.delete_by_document_id(document_id)
         vector_store.upsert(
             document_id=document_id,
+            user_id=doc.user_id,
             filename=doc.filename,
             chunks=chunks,
             embeddings=embeddings,

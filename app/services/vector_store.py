@@ -3,9 +3,9 @@ from uuid import uuid4
 
 class VectorStore(Protocol):
     def ensure_collection(self) -> None: ...
-    def upsert(self, document_id: str, filename: str, chunks: list[str], embeddings: list[list[float]]) -> None: ...
+    def upsert(self, document_id: str, user_id: str, filename: str, chunks: list[str], embeddings: list[list[float]]) -> None: ...
     def delete_by_document_id(self, document_id: str) -> None: ...
-    def search_with_metadata(self, query_embedding: list[float], top_k: int) -> list[dict]: ...
+    def search_with_metadata(self, query_embedding: list[float], top_k: int, user_id: str | None = None) -> list[dict]: ...
     def count(self) -> int: ...
 
 
@@ -40,6 +40,7 @@ class QdrantVectorStore:
 
     def upsert(self,
                document_id: str,
+               user_id: str,
                filename: str,
                chunks: list[str],
                embeddings: list[list[float]]) -> None:
@@ -51,6 +52,7 @@ class QdrantVectorStore:
                 vector=embedding,
                 payload={
                     "document_id": document_id,
+                    "user_id": user_id,        # 多租户：检索时按它过滤
                     "filename": filename,
                     "chunk_text": chunk,
                 },
@@ -68,11 +70,22 @@ class QdrantVectorStore:
             ),
         )
 
-    def search_with_metadata(self, query_embedding: list[float], top_k: int) -> list[dict]:
+    def search_with_metadata(
+        self, query_embedding: list[float], top_k: int, user_id: str | None = None
+    ) -> list[dict]:
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+        # 多租户：仅检索该用户的向量（user_id 为 None 时不过滤，供离线评估等无用户上下文场景）
+        query_filter = (
+            Filter(must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))])
+            if user_id is not None
+            else None
+        )
         results = self._client.query_points(
             collection_name=self._collection,
             query=query_embedding,
             limit=top_k,
+            query_filter=query_filter,
         )
         return [
             {

@@ -7,10 +7,11 @@ class SimpleRetriever:
         self._embed_client = embed_client
         self._vector_store = vector_store
     
-    def retrieve(self, query: str, top_k: int) -> list[dict]:
+    def retrieve(self, query: str, top_k: int, user_id: str | None = None) -> list[dict]:
         embedding = self._embed_client.embed(query)
 
         return self._vector_store.search_with_metadata(
             query_embedding=embedding,
             top_k=top_k,
+            user_id=user_id,
         )
