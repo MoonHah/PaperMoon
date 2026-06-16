@@ -15,6 +15,10 @@ import os
 os.environ["LLM_MODE"] = "mock"
 os.environ["EMBEDDING_MODE"] = "mock"
 os.environ["RATE_LIMIT_ENABLED"] = "false"
+# 固定 Agent 后端，避免开发者 .env 的 AGENT_BACKEND 泄漏进测试：
+# 端点经此路由到手写版 + MockLLMService（langgraph 版会走真实 ChatOpenAI）。
+# langgraph 的图逻辑由 test_graph_agent.py 自建假模型图单独覆盖。
+os.environ["AGENT_BACKEND"] = "handwritten"
 
 from collections.abc import Generator
 

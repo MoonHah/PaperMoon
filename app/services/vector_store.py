@@ -77,8 +77,8 @@ class QdrantVectorStore:
         return [
             {
                 "text": hit.payload["chunk_text"],
-                "document_id": hit.payload["document_id"],
-                "filename": hit.payload["filename"],
+                "document_id": hit.payload.get("document_id", ""),
+                "filename": hit.payload.get("filename", ""),
             }
             for hit in results.points
             if hit.payload and "chunk_text" in hit.payload

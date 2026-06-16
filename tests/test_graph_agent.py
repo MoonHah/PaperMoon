@@ -4,7 +4,7 @@ from langchain_core.runnables import RunnableConfig
 
 import app.agent.graph_agent as graph_agent
 from app.agent.graph_agent import build_agent_graph
-from app.agent.schemas import AgentRunRequest
+from app.agent.schemas import AgentRunRequest, CitedChunk
 
 
 def test_same_thread_shares_history():
@@ -97,3 +97,38 @@ def test_run_returns_and_reuses_session_id(monkeypatch):
     resp2 = graph_agent.run(AgentRunRequest(user_query="第二问", session_id=resp1.session_id))
     assert resp2.session_id == resp1.session_id
     assert resp2.final_answer == "answer-2"
+
+
+def test_run_recovers_citations_from_search(monkeypatch):
+    # 假检索：返回两个结构化片段（含一个重复 text 验证去重）
+    fake_chunks = [
+        CitedChunk(text="片段A", document_id="d1", filename="a.pdf"),
+        CitedChunk(text="片段B", document_id="d1", filename="a.pdf"),
+        CitedChunk(text="片段A", document_id="d1", filename="a.pdf"),  # 重复 → 应被去重
+    ]
+    monkeypatch.setattr(graph_agent._impl, "search_documents", lambda q, **kw: fake_chunks)
+
+    # LLM：第一步发起 search_documents 工具调用，第二步给最终答案
+    fake = GenericFakeChatModel(messages=iter([
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "search_documents",
+                "args": {"query": "q"},
+                "id": "call_1",
+                "type": "tool_call",
+            }],
+        ),
+        AIMessage(content="最终答案"),
+    ]))
+    monkeypatch.setattr(graph_agent, "_graph", build_agent_graph(llm=fake))
+
+    resp = graph_agent.run(AgentRunRequest(user_query="问题"))
+
+    assert resp.final_answer == "最终答案"
+    # content_and_artifact 回收 + 去重：3 条片段去重后剩 2 条
+    assert len(resp.citations) == 2
+    assert {c.text for c in resp.citations} == {"片段A", "片段B"}
+    assert resp.citations[0].filename == "a.pdf"
+    # 轨迹记录了这一步工具调用
+    assert any(s.action == "search_documents" for s in resp.intermediate_steps)

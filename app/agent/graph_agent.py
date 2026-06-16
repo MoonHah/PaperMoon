@@ -2,7 +2,7 @@ from typing import Annotated, TypedDict
 from uuid import uuid4
 
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, trim_messages
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage, trim_messages
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph
 from langgraph.graph.message import add_messages
@@ -12,7 +12,7 @@ from pydantic import SecretStr
 from app.agent import tools as _impl    # 复用现有工具实现
 from app.core.config import settings
 
-from app.agent.schemas import AgentRunRequest, AgentRunResponse, IntermediateStep
+from app.agent.schemas import AgentRunRequest, AgentRunResponse, CitedChunk, IntermediateStep
 from langgraph.checkpoint.memory import MemorySaver # for checkpointer
 
 # ========================== LangGraph版 ReAct Agent =============================
@@ -22,17 +22,32 @@ class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
 
 
+# 系统提示：每次调用前临时注入（不写入 state，故不进 checkpointer 历史）。
+# document_id 仅供 Agent 内部调工具用，不要回显给用户——用户看到 UUID 体验很差。
+_SYSTEM_PROMPT = SystemMessage(
+    content=(
+        "你是 PaperMoon 的文档阅读助手。对用户作答时一律用文件名指代文档，"
+        "绝不要向用户展示 document_id / UUID（它们仅供你内部调用工具使用）。"
+    )
+)
+
+
 # ── 工具：@tool 的 docstring 即「给 LLM 的工具说明书」（= schema 的 description）──
 
-@tool
-def search_documents(query: str) -> str:
+@tool(response_format="content_and_artifact")
+def search_documents(query: str) -> tuple[str, list[dict]]:
     """在文档库中检索与问题最相关的片段，回答关于文档内容的具体问题。当用户提问但没有明确要求总结/对比/做笔记时，默认使用这个。
 
     Args:
         query: 用于检索的查询文本。
     """
+    # content_and_artifact：返回 (给 LLM 看的字符串, 结构化引用)。
+    # 字符串进 ToolMessage.content（LLM 行为不变），结构化引用进 ToolMessage.artifact，
+    # 供 run() 跑完回收成 citations——绕开「ToolNode 把结果压成字符串丢失结构」的问题。
     chunks = _impl.search_documents(query)
-    return "\n\n---\n\n".join(c.text for c in chunks) if chunks else "未找到相关内容。"
+    content = "\n\n---\n\n".join(c.text for c in chunks) if chunks else "未找到相关内容。"
+    artifact = [c.model_dump() for c in chunks]
+    return content, artifact
 
 
 @tool
@@ -133,7 +148,8 @@ def build_agent_graph(llm=None, checkpointer=None):
             include_system=True,
             allow_partial=False,
         )
-        return {"messages": [llm.invoke(window)]}
+        # 临时前置系统提示（不入 state/checkpointer）：约束不回显 UUID
+        return {"messages": [llm.invoke([_SYSTEM_PROMPT, *window])]}
 
     graph = StateGraph(AgentState)                          # 用 State 类型建图
 
@@ -198,11 +214,22 @@ def run(request: AgentRunRequest) -> AgentRunResponse:
         )
     ]
 
+    # 从本轮 search_documents 的 ToolMessage.artifact 回收结构化引用（content_and_artifact）。
+    # 按 (document_id, text) 去重：一轮内可能多次检索、命中重复片段。
+    citations: list[CitedChunk] = []
+    seen: set[tuple[str, str]] = set()
+    for m in current_turn:
+        if isinstance(m, ToolMessage) and m.name == "search_documents" and m.artifact:
+            for c in m.artifact:
+                key = (c["document_id"], c["text"])
+                if key not in seen:
+                    seen.add(key)
+                    citations.append(CitedChunk(**c))
+
     return AgentRunResponse(
         final_answer=messages[-1].content,
         selected_tool="(final)",
         intermediate_steps=steps,
-        # 局限：ToolNode 把工具结果压成字符串，citations 的结构化信息无法回收——框架封装的代价
-        citations=[],
+        citations=citations,
         session_id=session_id
     )

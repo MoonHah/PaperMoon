@@ -4,14 +4,14 @@
 
 ## 当前阶段
 
-Phase 13 — Agent 升级。在 RAG 问答之上，引入 LLM function calling 驱动的多步 Agent（ReAct）：自主选择工具、多步推理、按需检索/总结/对比/做笔记。
+Phase 15 — 检索精排与多轮记忆。在 RAG + Agent 基础上补齐 LLM 重排（Reranking）与多轮对话记忆。
 
 已具备能力：
 
 - **文档**：上传 `.pdf` / `.md` / `.txt`（Docling 高精度 PDF 解析），内容指纹去重。
-- **检索**：Simple / Multi-Query / HyDE 多策略可插拔（`RETRIEVAL_MODE` 切换）+ 离线评估脚本（Hit Rate / MRR）。
+- **检索**：Simple / Multi-Query / HyDE 多策略可插拔（`RETRIEVAL_MODE`）+ LLM 重排（`RERANK_ENABLED` 正交叠加）+ 离线评估脚本（Hit Rate / MRR）。
 - **问答**：单轮 RAG 问答（支持流式）。
-- **Agent**：function calling 选工具 + 多步 ReAct loop（详见下方「智能 Agent」）。
+- **Agent**：function calling 选工具 + 多步 ReAct loop；手写版与 LangGraph 版双后端（`AGENT_BACKEND`），LangGraph 版支持多轮对话记忆（详见下方「智能 Agent」）。
 
 ## 技术栈
 
@@ -170,6 +170,17 @@ LLM 全部重试失败后自动 fallback 到 MockLLMService，响应带 `[MOCK]`
 
 Redis 不可用时自动跳过限流检查（fail open），不影响正常请求。
 
+### Agent 与检索配置
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `RETRIEVAL_MODE` | `simple` | 检索策略：`simple` / `multi_query` / `hyde` |
+| `RERANK_ENABLED` | `false` | 开启 LLM 重排（正交叠加在检索策略之上）；增加一次 LLM 调用 + `RERANK_FETCH_K` 倍召回，是质量/成本权衡 |
+| `RERANK_FETCH_K` | `20` | 重排前召回的候选数 |
+| `AGENT_BACKEND` | `handwritten` | Agent 实现：`handwritten`（单轮）/ `langgraph`（支持多轮记忆） |
+| `CHECKPOINT_BACKEND` | `memory` | 会话记忆存储：`memory`（重启失忆）/ `postgres`（重启不失忆） |
+| `AGENT_HISTORY_WINDOW` | `20` | 单次传给 LLM 的最大历史消息条数（完整历史仍存 checkpointer） |
+
 ### 请求 ID（request_id）
 
 每个请求自动生成 8 位 hex request_id，也可由客户端通过 `X-Request-ID` 请求头透传（便于前后端链路追踪）。  
@@ -249,6 +260,24 @@ curl -X POST http://localhost:8008/api/v1/agent/run \
 ### 工作机制
 
 Agent 用 OpenAI function calling 选工具，在多步 ReAct 循环中把工具结果回填对话历史，直到给出最终答案（最多 5 步，防死循环）。工具执行失败会把错误信息回填，Agent 可感知失败并换策略重试。用户用自然语言指代文档（如「那两篇」）时，Agent 会先调 `list_documents` 拿到真实 document_id 再操作。
+
+### 多轮对话记忆（LangGraph 后端）
+
+设 `AGENT_BACKEND=langgraph` 后 Agent 支持多轮会话：首次请求不带 `session_id`，响应里会返回一个；后续请求带上它，Agent 就能「记得」上文（解析「它」「那两篇」等指代）。
+
+```bash
+# 第一轮：不带 session_id，响应返回新生成的
+curl -X POST http://localhost:8008/api/v1/agent/run \
+  -H "Content-Type: application/json" \
+  -d '{"user_query": "SEAgent 是怎么自主学习的？"}'
+
+# 第二轮：带上一轮返回的 session_id 续聊
+curl -X POST http://localhost:8008/api/v1/agent/run \
+  -H "Content-Type: application/json" \
+  -d '{"user_query": "它在哪个基准上测试的？", "session_id": "<上一轮返回的>"}'
+```
+
+会话历史由 LangGraph checkpointer 持久化——设 `CHECKPOINT_BACKEND=postgres` 则服务重启也不失忆。
 
 ---
 

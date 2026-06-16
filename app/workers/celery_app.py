@@ -1,9 +1,11 @@
 import logging
 
 from celery import Celery
-from celery.signals import after_setup_logger, worker_process_init
+from celery.signals import after_setup_logger, worker_process_init, worker_ready
 
 from app.core.config import settings
+
+_log = logging.getLogger(__name__)
 
 
 celery_app = Celery(
@@ -43,3 +45,22 @@ def init_worker_logging(**_):
     # worker 子进程日志（任务执行日志）
     from app.core.logging import setup_logging
     setup_logging()
+
+
+@worker_ready.connect
+def reconcile_on_startup(**_):
+    # worker 就绪时对账一次：把被硬杀/重启遗留的「停滞非终态」文档置 FAILED，
+    # 避免它们永久卡在 PARSING 等中间态。对账失败不应阻断 worker 启动，故全包 try。
+    # worker_ready 在主进程只触发一次（区别于 worker_process_init 的每子进程）。
+    from app.core.database import SessionLocal
+    from app.services.document_reconcile import reconcile_stuck_documents
+
+    db = SessionLocal()
+    try:
+        n = reconcile_stuck_documents(db, settings.stuck_document_timeout)
+        if n:
+            _log.info("startup reconcile: marked %d stuck document(s) FAILED", n)
+    except Exception as e:
+        _log.error("startup reconcile failed: %s", e)
+    finally:
+        db.close()

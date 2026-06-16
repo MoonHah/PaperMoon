@@ -7,11 +7,22 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.errors import AppError
-from app.models.document import Document
+from app.models.document import Document, DocumentStatus
 from app.repositories import document_repository
+from app.services.document_parser import parse_document
+from app.services.llm_service import get_llm_service
 from app.workers import document_tasks
 
 logger = logging.getLogger(__name__)
+
+_NOTES_PROMPT = (
+    "请基于以上文档内容，生成一份结构化的 Markdown 学习笔记。\n"
+    "要求：\n"
+    "1. 用 ## 分隔主要章节\n"
+    "2. 包含核心概念解释、关键要点和示例\n"
+    "3. 结尾附一个「总结」章节\n"
+    "只使用文档中提供的内容，不要补充额外信息。"
+)
 
 
 def ingest(session: Session, filename: str, suffix: str, content_bytes: bytes) -> Document:
@@ -64,3 +75,70 @@ def ingest(session: Session, filename: str, suffix: str, content_bytes: bytes) -
     doc.task_id = task.id
     session.commit()
     return doc
+
+
+def _read_text(document_id: str, file_type: str) -> str:
+    """取解析后的正文：优先读索引时持久化的 {id}.content.md；
+    旧文档（无该文件）则用 parse_document 重解析原文件并懒回填，下次直接读。
+    原文件也缺失时抛 FileNotFoundError。
+    """
+    storage_dir = Path(settings.storage_path)
+    parsed_path = storage_dir / f"{document_id}.content.md"
+    if parsed_path.exists():
+        return parsed_path.read_text(encoding="utf-8")
+
+    original = storage_dir / f"{document_id}{file_type}"
+    if not original.exists():
+        raise FileNotFoundError(str(original))
+    content = parse_document(original)
+    try:
+        parsed_path.write_text(content, encoding="utf-8")
+    except Exception as e:
+        logger.warning("lazy backfill parsed content failed for %s: %s", document_id, e)
+    return content
+
+
+def load_text(session: Session, document_id: str) -> str:
+    """按 document_id 取正文（供 Agent 工具复用）。找不到/无内容时抛 ValueError——
+    与工具层既有错误约定一致（ToolNode / 手写循环会捕获成工具错误回填）。
+    """
+    doc = document_repository.get_by_id(session, document_id)
+    if doc is None:
+        raise ValueError(f"Document {document_id} not found.")
+    try:
+        return _read_text(document_id, doc.file_type)
+    except FileNotFoundError:
+        raise ValueError(f"Document {document_id} content unavailable.")
+
+
+def get_content(session: Session, document_id: str) -> tuple[str, str]:
+    """返回 (filename, 解析后的正文)。供阅读接口使用（READY 校验 + AppError）。"""
+    doc = document_repository.get_by_id(session, document_id)
+    if doc is None:
+        raise AppError(error_code="NOT_FOUND", message="Document not found.", status_code=404)
+    if doc.status != DocumentStatus.READY.value:
+        raise AppError(
+            error_code="DOCUMENT_NOT_READY",
+            message="Document is not ready yet.",
+            status_code=409,
+        )
+    try:
+        return doc.filename, _read_text(document_id, doc.file_type)
+    except FileNotFoundError:
+        raise AppError(
+            error_code="CONTENT_UNAVAILABLE",
+            message="Document content is unavailable.",
+            status_code=404,
+        )
+
+
+def generate_notes(session: Session, document_id: str) -> tuple[str, str]:
+    """为单篇文档生成 Markdown 学习笔记，返回 (filename, notes)。
+
+    确定性操作：按 document_id 精确锁定、喂全文给 LLM（区别于 Agent 通用对话——
+    后者忽略 document_ids，且 generate_markdown_notes 工具只按 query 全库检索）。
+    """
+    filename, content = get_content(session, document_id)
+    llm = get_llm_service(settings)
+    notes = llm.chat(_NOTES_PROMPT, context_chunks=[content])
+    return filename, notes

@@ -58,6 +58,15 @@ def process_document(self, document_id: str) -> dict:
         file_path = Path(settings.storage_path) / f"{document_id}{doc.file_type}"
         content = parse_document(file_path)
 
+        # 持久化解析后的正文，供阅读页 GET /{id}/content 直接读取（避免每次重解析 PDF）。
+        # 写失败不影响主流程：阅读接口会按需回退重解析。
+        try:
+            (Path(settings.storage_path) / f"{document_id}.content.md").write_text(
+                content, encoding="utf-8"
+            )
+        except Exception as e:
+            logger.warning("persist parsed content failed for %s: %s", document_id, e)
+
         document_repository.update_status(db, document_id, DocumentStatus.CHUNKING)
         db.commit()
         _log_status("CHUNKING")

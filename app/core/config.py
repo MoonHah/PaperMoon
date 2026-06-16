@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     # File upload
     max_file_size_mb: int = 10
 
+    # 停滞文档对账：非终态文档停滞超过此秒数，视为被中断（worker 重启 / 硬杀 / OOM），
+    # worker 启动时对账置 FAILED。需 > Celery hard time limit(150) 留足余量，避免误判在途任务。
+    stuck_document_timeout: int = 300
+
     # Celery / Redis
     redis_url: str = "redis://localhost:6379/0"
 

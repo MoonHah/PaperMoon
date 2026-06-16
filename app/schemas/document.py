@@ -16,6 +16,16 @@ class DocumentStatusResponse(BaseModel):
     chunk_count: int | None = Field(default=None)
     error_message: str | None = Field(default=None)
 
+class DocumentContentResponse(BaseModel):
+    document_id: str = Field(...)
+    filename: str = Field(...)
+    content: str = Field(description="解析后的文档正文（Markdown）")
+
+class DocumentNotesResponse(BaseModel):
+    document_id: str = Field(...)
+    filename: str = Field(...)
+    notes: str = Field(description="基于该文档全文生成的 Markdown 学习笔记")
+
 class DocumentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

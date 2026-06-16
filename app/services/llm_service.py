@@ -138,7 +138,9 @@ class OpenAILLMService:
 
 
     def stream_chat(self, query: str, context_chunks: list[str]) -> Iterator[str]:
-        # 流式逐 token yield，与 _create 的一次性返回结构不同，单独保留
+        # 流式逐 token yield，与 _create 的一次性返回结构不同，单独保留。
+        # 刻意不走 openai_retry：流式中途无法安全重放已发出的 token；瞬时故障由
+        # ResilientLLMService 在首 token 处捕获并整体切到 fallback（mock），而非这里重试。
         context = "\n\n---\n\n".join(context_chunks)
         stream = self._client.chat.completions.create(
             model=self._model,

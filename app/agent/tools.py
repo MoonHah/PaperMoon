@@ -1,10 +1,8 @@
-from pathlib import Path
-
 from app.agent.schemas import CitedChunk
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.repositories import document_repository
-from app.services.document_parser import parse_document
+from app.services import document_service
 from app.services.llm_service import get_llm_service
 from app.services.retrieval import get_retriever
 
@@ -29,48 +27,29 @@ def list_documents() -> list[dict]:
 
 
 def summarize_document(document_id: str) -> str:
-    # 1. 查数据库
     db = SessionLocal()
     try:
-        doc = document_repository.get_by_id(db, document_id)
-        if doc is None:
-            raise ValueError(f"Document {document_id} not found.")
+        content = document_service.load_text(db, document_id)
     finally:
         db.close()
-    
-    # 2. 读取文件
-    file_path = Path(settings.storage_path) / f"{document_id}{doc.file_type}"
-    content = parse_document(file_path)
 
-    # 3. 调用 LLM
     llm = get_llm_service(settings)
-    summary = llm.chat(
+    return llm.chat(
         "请为这篇文档生成一份简洁但包含核心重点内容的总结, 同时确保不伪造数据或者文章内容。",
-        context_chunks=[content]
+        context_chunks=[content],
     )
 
-    # 4. 返回
-    return summary
-    
 
 def compare_documents(document_ids: list[str]) -> str:
     if len(document_ids) < 2:
         raise ValueError("Compare needs at least 2 documents!")
-    
-    contents = []
+
     db = SessionLocal()
     try:
-        for doc_id in document_ids:
-            doc = document_repository.get_by_id(db, doc_id)
-            if doc is None:
-                raise ValueError(f"Document {doc_id} not found.")
-            
-            file_path = Path(settings.storage_path) / f"{doc_id}{doc.file_type}"
-            contents.append(parse_document(file_path))
-
+        contents = [document_service.load_text(db, doc_id) for doc_id in document_ids]
     finally:
         db.close()
-    
+
     llm = get_llm_service(settings)
     return llm.chat(
         query=(

@@ -9,7 +9,13 @@ logger = logging.getLogger(__name__)
 from app.core.config import settings
 from app.core.database import get_db
 from app.repositories import document_repository
-from app.schemas.document import DocumentResponse, DocumentStatusResponse, DocumentUploadResponse
+from app.schemas.document import (
+    DocumentContentResponse,
+    DocumentNotesResponse,
+    DocumentResponse,
+    DocumentStatusResponse,
+    DocumentUploadResponse,
+)
 from app.services import document_service
 
 router = APIRouter()
@@ -28,6 +34,24 @@ def get_document_status(document_id: str, session: Session = Depends(get_db)):
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found.")
     return doc
+
+
+@router.get("/{document_id}/content", response_model=DocumentContentResponse)
+def get_document_content(document_id: str, session: Session = Depends(get_db)):
+    # 取正文：读索引时持久化的解析文件，旧文档懒回填重解析（见 document_service.get_content）。
+    filename, content = document_service.get_content(session, document_id)
+    return DocumentContentResponse(
+        document_id=document_id, filename=filename, content=content
+    )
+
+
+@router.post("/{document_id}/notes", response_model=DocumentNotesResponse)
+def generate_document_notes(document_id: str, session: Session = Depends(get_db)):
+    # 确定性地为单篇文档生成笔记（按 document_id 锁定，喂全文）——不走 Agent，避免指代歧义。
+    filename, notes = document_service.generate_notes(session, document_id)
+    return DocumentNotesResponse(
+        document_id=document_id, filename=filename, notes=notes
+    )
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)

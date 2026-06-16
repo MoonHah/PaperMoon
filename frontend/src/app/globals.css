@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Surface（画布：品牌面 #0a0a0a vs 阅读面 #15171b）── */
+  --color-canvas: #0a0a0a;
+  --color-canvas-read: #15171b;
+  --color-canvas-soft: #1a1c20;
+  --color-canvas-card: #191919;
+  --color-canvas-mid: #363a3f;
+  --color-hairline: #212327;
+
+  /* ── Text ── */
+  --color-ink: #ffffff;
+  --color-ink-read: #e6e7ea;
+  --color-body: #dadbdf;
+  --color-mute: #7d8187;
+
+  /* ── Accent（解禁用于交互态：活跃 tab / Agent 标识 / 链接）── */
+  --color-accent-sunset: #ff7a17;
+  --color-accent-breeze: #a0c3ec;
+  --color-accent-dusk: #7c3aed;
+
+  /* ── Semantic（状态流水线 / 校验 / 引用高亮；每色配 -soft 深底）── */
+  --color-success: #3fb950;
+  --color-success-soft: #10251a;
+  --color-warning: #d29922;
+  --color-warning-soft: #2a2310;
+  --color-danger: #f85149;
+  --color-danger-soft: #2d1518;
+  --color-info: #58a6ff;
+  --color-info-soft: #0f2236;
+  --color-processing: #a0c3ec;
+  --color-highlight: #ff7a17;
+
+  /* ── Fonts（变量由 layout.tsx 的 next/font 注入）── */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* ── Radius ── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-pill: 9999px;
+
+  /* ── Shadow（叠层景深，营销面不用）── */
+  --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  /* ── Typography ── */
+  --text-display-xl: 96px;
+  --text-display-xl--line-height: 96px;
+  --text-display-xl--letter-spacing: -2.4px;
+  --text-display-xl--font-weight: 400;
+
+  --text-display-lg: 72px;
+  --text-display-lg--line-height: 72px;
+  --text-display-lg--letter-spacing: -1.8px;
+  --text-display-lg--font-weight: 400;
+
+  --text-display-md: 48px;
+  --text-display-md--line-height: 48px;
+  --text-display-md--letter-spacing: -1.2px;
+  --text-display-md--font-weight: 400;
+
+  --text-display-sm: 32px;
+  --text-display-sm--line-height: 36px;
+  --text-display-sm--letter-spacing: -0.6px;
+  --text-display-sm--font-weight: 400;
+
+  --text-display-xs: 20px;
+  --text-display-xs--line-height: 28px;
+  --text-display-xs--font-weight: 400;
+
+  --text-read-heading: 24px;
+  --text-read-heading--line-height: 32px;
+  --text-read-heading--letter-spacing: -0.2px;
+  --text-read-heading--font-weight: 600;
+
+  --text-read-body: 17px;
+  --text-read-body--line-height: 30px;
+
+  --text-caption-mono: 14px;
+  --text-caption-mono--line-height: 20px;
+  --text-caption-mono--letter-spacing: 1.4px;
+
+  --text-caption-mono-sm: 12px;
+  --text-caption-mono-sm--line-height: 16px;
+  --text-caption-mono-sm--letter-spacing: 1.2px;
+}
+
+/* 全局默认表面：品牌画布 + 纯白字 + Geist。阅读面用 bg-canvas-read 局部覆盖。 */
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}

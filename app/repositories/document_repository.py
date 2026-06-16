@@ -1,7 +1,12 @@
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.document import Document, DocumentStatus
+
+# 终态：处理已结束，不再变化。
+_TERMINAL_STATUSES = (DocumentStatus.READY.value, DocumentStatus.FAILED.value)
 
 
 def create(
@@ -44,6 +49,18 @@ def get_by_content_hash(session: Session, content_hash: str) -> Document | None:
 
 def get_all(session: Session) -> list[Document]:
     stmt = select(Document)
+    return list(session.execute(stmt).scalars().all())
+
+
+def get_stuck(session: Session, before: datetime) -> list[Document]:
+    """查找停滞文档：非终态（仍在处理中）且 updated_at 早于 before。
+
+    用于对账/清理被硬杀（worker 重启 / OOM）遗留、永远落不到终态的记录。
+    """
+    stmt = select(Document).where(
+        Document.status.not_in(_TERMINAL_STATUSES),
+        Document.updated_at < before,
+    )
     return list(session.execute(stmt).scalars().all())
 
 
