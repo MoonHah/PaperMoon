@@ -6,6 +6,7 @@ from app.api.v1 import (
     documents,
     chat,
     agent,
+    auth,
 )
 
 v1_router = APIRouter()     # v1 的父router
@@ -13,6 +14,11 @@ v1_router = APIRouter()     # v1 的父router
 v1_router.include_router(
     health.router,
     tags=["health"],    # 在 FastAPI 的 /docs 文档里，把这个接口归类到 health 分组下面
+)
+
+v1_router.include_router(
+    auth.router,
+    tags=["auth"],
 )
 
 v1_router.include_router(

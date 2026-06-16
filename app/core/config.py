@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     checkpoint_backend: str = "memory"   # "memory" | "postgres" (postgres = 重启不失忆)
     agent_history_window: int = 20       # 单次传给 LLM 的最大历史消息条数（完整历史仍存 checkpointer）
 
+    # Auth（JWT）—— 生产务必通过环境变量覆盖 JWT_SECRET 为强随机值（≥32 字节）
+    jwt_secret: str = "dev-insecure-change-me-please-override-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 10080      # 7 天
+
     # Reranking
     rerank_enabled: bool = False
     rerank_fetch_k: int = 20

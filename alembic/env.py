@@ -10,7 +10,7 @@ from alembic import context
 # 否则 autogenerate 扫描不到表定义。
 from app.core.config import settings
 from app.core.database import Base
-from app.models import document  # noqa: F401  触发模型注册
+from app.models import document, user  # noqa: F401  触发模型注册
 
 # ── Alembic 标准配置 ──────────────────────────────────────────
 config = context.config
