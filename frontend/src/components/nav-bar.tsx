@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getMe } from "@/lib/api";
+import { clearToken, getToken } from "@/lib/auth";
 
 type NavLink = { href: string; label: string; disabled?: boolean };
 
@@ -12,6 +15,20 @@ const LINKS: NavLink[] = [
 
 export function NavBar() {
   const pathname = usePathname();
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (getToken()) {
+      getMe()
+        .then((u) => setEmail(u.email))
+        .catch(() => {});
+    }
+  }, []);
+
+  function logout() {
+    clearToken();
+    window.location.href = "/login";
+  }
 
   return (
     <header className="sticky top-0 z-10 border-b border-hairline bg-canvas/80 backdrop-blur">
@@ -50,13 +67,28 @@ export function NavBar() {
             )}
           </ul>
 
-          {/* 账户占位：P2 接真实登录前为静态占位 */}
-          <span
-            className="cursor-not-allowed rounded-pill border border-hairline px-4 py-1.5 text-sm text-mute"
-            title="登录功能即将上线"
-          >
-            登录
-          </span>
+          {/* 账户区：已登录显邮箱 + 退出，未登录显登录链接 */}
+          {email ? (
+            <div className="flex items-center gap-2">
+              <span className="max-w-[160px] truncate text-sm text-mute" title={email}>
+                {email}
+              </span>
+              <button
+                type="button"
+                onClick={logout}
+                className="rounded-pill border border-hairline px-3 py-1.5 text-sm text-body transition-colors hover:text-ink"
+              >
+                退出
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-pill border border-hairline px-4 py-1.5 text-sm text-ink transition-colors hover:bg-canvas-soft"
+            >
+              登录
+            </Link>
+          )}
         </div>
       </nav>
     </header>

@@ -50,6 +50,18 @@ export interface DocumentNotesResponse {
 // 处理已结束的终态：轮询到这两个状态即可停止。
 export const TERMINAL_STATUSES: DocStatus[] = ["READY", "FAILED"];
 
+// ── Auth ──
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+}
+
+export interface UserResponse {
+  id: string;
+  email: string;
+}
+
 // ── Agent（对齐 app/agent/schemas.py）──
 
 export interface IntermediateStep {

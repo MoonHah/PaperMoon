@@ -1,3 +1,4 @@
+import { clearToken, getToken } from "./auth";
 import type {
   AgentRunRequest,
   AgentRunResponse,
@@ -6,6 +7,8 @@ import type {
   DocumentResponse,
   DocumentStatusResponse,
   DocumentUploadResponse,
+  TokenResponse,
+  UserResponse,
 } from "./types";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -30,9 +33,18 @@ async function request<T>(
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // 注入 Bearer（已登录时）。
+  const token = getToken();
+  const headers = new Headers(init?.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
   try {
-    const res = await fetch(path, { ...init, signal: controller.signal });
+    const res = await fetch(path, { ...init, headers, signal: controller.signal });
     if (!res.ok) {
+      // 携带 token 仍 401 = token 失效/过期 → 清掉并回登录页（登录请求本身无 token，不触发）。
+      if (res.status === 401 && token && typeof window !== "undefined") {
+        clearToken();
+        window.location.href = "/login";
+      }
       let detail = res.statusText;
       try {
         const body = await res.json();
@@ -52,6 +64,28 @@ async function request<T>(
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ── Auth ──
+
+export function registerUser(email: string, password: string): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/v1/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function loginUser(email: string, password: string): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/v1/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function getMe(): Promise<UserResponse> {
+  return request<UserResponse>("/api/v1/auth/me");
 }
 
 export function getDocument(id: string): Promise<DocumentResponse> {
