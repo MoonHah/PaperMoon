@@ -23,8 +23,9 @@ celery_app.conf.update(
     task_track_started=True,
     # 单个文档处理的超时上限：防止超大/损坏 PDF 卡死 solo worker、阻塞整个队列。
     # soft 先触发并抛 SoftTimeLimitExceeded（可被任务捕获并置 FAILED）；hard 是兜底硬杀。
-    task_soft_time_limit=120,
-    task_time_limit=150,
+    # 值由 env 可配（默认含 Docling 首次模型下载的冷启动余量），见 config.py。
+    task_soft_time_limit=settings.parse_task_soft_limit,
+    task_time_limit=settings.parse_task_hard_limit,
 )
 
 

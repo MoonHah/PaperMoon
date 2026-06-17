@@ -56,9 +56,15 @@ class Settings(BaseSettings):
     # File upload
     max_file_size_mb: int = 10
 
-    # 停滞文档对账：非终态文档停滞超过此秒数，视为被中断（worker 重启 / 硬杀 / OOM），
-    # worker 启动时对账置 FAILED。需 > Celery hard time limit(150) 留足余量，避免误判在途任务。
-    stuck_document_timeout: int = 300
+    # 文档处理任务时限（Celery）。需容纳首个 PDF 的 Docling 冷启动（首次下载版面模型，
+    # 即便有缓存卷，第一次仍需下载）+ 大 PDF 的 CPU 解析。soft 先抛 SoftTimeLimitExceeded
+    # 可被捕获置 FAILED；hard 是兜底硬杀。
+    parse_task_soft_limit: int = 600
+    parse_task_hard_limit: int = 660
+
+    # 停滞文档对账：非终态停滞超过此秒数视为被中断（硬杀/OOM/重启），worker 启动时置 FAILED。
+    # 必须 > parse_task_hard_limit，否则会把"还在跑的长任务"误判为僵尸。
+    stuck_document_timeout: int = 900
 
     # Celery / Redis
     redis_url: str = "redis://localhost:6379/0"
