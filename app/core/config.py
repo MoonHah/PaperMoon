@@ -1,5 +1,9 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# JWT 密钥的开发占位默认值。生产必须用环境变量 JWT_SECRET 覆盖；
+# 否则 main.py 的 lifespan 启动校验会在非 debug 下拒绝启动（防伪造 token）。
+DEV_JWT_SECRET = "dev-insecure-change-me-please-override-in-production"
+
 
 class Settings(BaseSettings):
     app_name: str = "PaperMoon"
@@ -37,7 +41,7 @@ class Settings(BaseSettings):
     agent_history_window: int = 20       # 单次传给 LLM 的最大历史消息条数（完整历史仍存 checkpointer）
 
     # Auth（JWT）—— 生产务必通过环境变量覆盖 JWT_SECRET 为强随机值（≥32 字节）
-    jwt_secret: str = "dev-insecure-change-me-please-override-in-production"
+    jwt_secret: str = DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 10080      # 7 天
 

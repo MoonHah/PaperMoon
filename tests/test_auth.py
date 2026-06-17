@@ -1,5 +1,6 @@
-"""认证端点测试：注册 / 登录 / me / 401 / 409。用未认证的 anon_client。"""
+"""认证端点测试：注册 / 登录 / me / 401 / 409 + 启动安全闸。用未认证的 anon_client。"""
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -58,3 +59,16 @@ def test_duplicate_email_race_falls_back_to_409(anon_client: TestClient, monkeyp
         "/api/v1/auth/register", json={"email": "race@d.com", "password": "secret123"}
     )
     assert resp.status_code == 409
+
+
+def test_startup_rejects_default_jwt_secret_in_prod(monkeypatch):
+    # 安全闸：非 debug + 默认 JWT 密钥 → lifespan 启动应直接拒绝（防伪造 token）
+    from app.core.config import DEV_JWT_SECRET, settings
+    import app.main as main
+
+    monkeypatch.setattr(settings, "debug", False)
+    monkeypatch.setattr(settings, "jwt_secret", DEV_JWT_SECRET)
+
+    with pytest.raises(RuntimeError, match="JWT_SECRET"):
+        with TestClient(main.app):
+            pass
