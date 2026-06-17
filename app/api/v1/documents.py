@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.models.document import Document
 from app.models.user import User
 from app.repositories import document_repository
 from app.schemas.document import (
@@ -25,6 +26,18 @@ router = APIRouter()
 ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf"}
 
 
+def get_owned_document(
+    document_id: str,
+    session: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Document:
+    """依赖：取当前用户拥有的文档，否则 404。收敛归属校验，避免各端点重复。"""
+    doc = document_repository.get_owned(session, user.id, document_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    return doc
+
+
 @router.get("/", response_model=list[DocumentResponse])
 def list_documents(
     session: Session = Depends(get_db), user: User = Depends(get_current_user)
@@ -33,14 +46,7 @@ def list_documents(
 
 
 @router.get("/{document_id}/status", response_model=DocumentStatusResponse)
-def get_document_status(
-    document_id: str,
-    session: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    doc = document_repository.get_owned(session, user.id, document_id)
-    if doc is None:
-        raise HTTPException(status_code=404, detail="Document not found.")
+def get_document_status(doc: Document = Depends(get_owned_document)):
     return doc
 
 
@@ -71,14 +77,7 @@ def generate_document_notes(
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
-def get_document(
-    document_id: str,
-    session: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    doc = document_repository.get_owned(session, user.id, document_id)
-    if doc is None:
-        raise HTTPException(status_code=404, detail="Document not found.")
+def get_document(doc: Document = Depends(get_owned_document)):
     return doc
 
 

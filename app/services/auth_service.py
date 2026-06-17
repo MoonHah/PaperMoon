@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import bcrypt
 import jwt
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -57,15 +58,21 @@ def decode_token(token: str) -> str:
 
 
 def register(session: Session, email: str, password: str) -> User:
+    # 先查重拦常见情况；并发同邮箱仍可能双双过检查，故 commit 再兜 unique 约束的 IntegrityError。
     if user_repository.get_by_email(session, email) is not None:
         raise AppError(error_code="EMAIL_TAKEN", message="该邮箱已注册。", status_code=409)
-    user = user_repository.create(
-        session,
-        user_id=str(uuid4()),
-        email=email,
-        hashed_password=hash_password(password),
-    )
-    session.commit()
+    try:
+        # create() 内部 flush 即触发 INSERT，故 create+commit 一并纳入 try。
+        user = user_repository.create(
+            session,
+            user_id=str(uuid4()),
+            email=email,
+            hashed_password=hash_password(password),
+        )
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise AppError(error_code="EMAIL_TAKEN", message="该邮箱已注册。", status_code=409)
     return user
 
 

@@ -29,12 +29,16 @@ def _body(error_code: str, message: str, details: dict) -> dict:
     return {"error_code": error_code, "message": message, "details": details}
 
 
-async def app_error_handler(request: Request, exc: Exception) -> JSONResponse:
-    e = cast(AppError, exc)
+def app_error_response(exc: AppError) -> JSONResponse:
+    """把 AppError 渲染成统一错误响应。异常处理器与限流中间件共用，避免重复构造响应体。"""
     return JSONResponse(
-        status_code=e.status_code,
-        content=_body(e.error_code, e.message, e.details),
+        status_code=exc.status_code,
+        content=_body(exc.error_code, exc.message, exc.details),
     )
+
+
+async def app_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    return app_error_response(cast(AppError, exc))
 
 
 async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:

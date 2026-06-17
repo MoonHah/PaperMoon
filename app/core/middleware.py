@@ -4,10 +4,10 @@ import uuid
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 
-from app.core.errors import AppError
-from app.core.logging import get_request_id, set_request_id
+from app.core.errors import AppError, app_error_response
+from app.core.logging import set_request_id
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +55,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         try:
             get_rate_limiter(settings).check(identifier)
         except AppError as e:
-            return JSONResponse(
-                status_code=e.status_code,
-                content={"error_code": e.error_code, "message": e.message, "details": e.details},
-                headers={"X-Request-ID": get_request_id()},
-            )
+            # 复用统一错误响应；X-Request-ID 由外层 RequestMiddleware 统一补上。
+            return app_error_response(e)
         return await call_next(request)
