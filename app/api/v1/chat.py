@@ -23,7 +23,8 @@ def chat(
 ):
     user_id = user.id
     if stream:
-        if get_vector_store(settings).count() == 0:
+        # 流式必须在开流前判空（否则会先 200 再于流中断）；按当前用户计数。
+        if get_vector_store(settings).count(user_id=user_id) == 0:
             raise HTTPException(status_code=400, detail="No documents uploaded yet.")
 
         def sse_gen():

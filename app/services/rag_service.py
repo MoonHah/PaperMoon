@@ -10,8 +10,13 @@ from app.services.vector_store import get_vector_store
 logger = logging.getLogger(__name__)
 
 
-def _ensure_documents_exist() -> None:
-    if get_vector_store(settings).count() == 0:
+def ensure_user_has_documents(user_id: str) -> None:
+    """该用户没有任何已索引内容时抛 ValueError（→ 400）。
+
+    按用户计数（而非全局）：别人有文档不代表当前用户有；空则提前返回，
+    省掉一次必然检索不到的 LLM 调用。
+    """
+    if get_vector_store(settings).count(user_id=user_id) == 0:
         raise ValueError("No documents uploaded yet.")
 
 
@@ -31,7 +36,7 @@ def _model_label() -> str:
 
 
 def chat(query: str, top_k: int, user_id: str) -> dict:
-    _ensure_documents_exist()
+    ensure_user_has_documents(user_id)
     t_start = time.perf_counter()
 
     retrieved_chunks, retrieval_latency_ms = _retrieve(query, top_k, user_id)
@@ -55,7 +60,7 @@ def chat(query: str, top_k: int, user_id: str) -> dict:
 
 
 def stream_chat(query: str, top_k: int, user_id: str) -> Iterator[str]:
-    _ensure_documents_exist()
+    ensure_user_has_documents(user_id)
     t_start = time.perf_counter()
 
     retrieved_chunks, retrieval_latency_ms = _retrieve(query, top_k, user_id)

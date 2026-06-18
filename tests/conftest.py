@@ -89,7 +89,8 @@ class InMemoryVectorStore:
             for d in self._docs[:top_k]
         ]
 
-    def count(self) -> int:
+    def count(self, user_id: str | None = None) -> int:
+        # 忽略 user_id 过滤（与 search_with_metadata 一致）；测试不验证向量层多租户计数。
         return len(self._docs)
 
 

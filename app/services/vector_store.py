@@ -6,7 +6,7 @@ class VectorStore(Protocol):
     def upsert(self, document_id: str, user_id: str, filename: str, chunks: list[str], embeddings: list[list[float]]) -> None: ...
     def delete_by_document_id(self, document_id: str) -> None: ...
     def search_with_metadata(self, query_embedding: list[float], top_k: int, user_id: str | None = None) -> list[dict]: ...
-    def count(self) -> int: ...
+    def count(self, user_id: str | None = None) -> int: ...
 
 
 
@@ -97,8 +97,17 @@ class QdrantVectorStore:
             if hit.payload and "chunk_text" in hit.payload
         ]
 
-    def count(self) -> int:
-        return self._client.count(collection_name=self._collection).count
+    def count(self, user_id: str | None = None) -> int:
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+        count_filter = (
+            Filter(must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))])
+            if user_id is not None
+            else None
+        )
+        return self._client.count(
+            collection_name=self._collection, count_filter=count_filter
+        ).count
 
 
 # 懒加载单例

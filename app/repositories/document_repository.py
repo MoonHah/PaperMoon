@@ -90,7 +90,12 @@ def update_status(
     doc.status = status.value
     if chunk_count is not None:
         doc.chunk_count = chunk_count
-    if error_message is not None:
-        doc.error_message = error_message
+    # error_message 只在 FAILED 时有意义；转入其它状态（含 READY、重试中的 PARSING）
+    # 一律清空，避免重处理成功后仍残留上一次的失败信息。
+    if status == DocumentStatus.FAILED:
+        if error_message is not None:
+            doc.error_message = error_message
+    else:
+        doc.error_message = None
     session.flush()                     # 把内存对象的修改 flush 到 DB
     return doc
