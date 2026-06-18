@@ -5,6 +5,7 @@ import { ApiError, runAgent } from "@/lib/api";
 import type { CitedChunk, IntermediateStep } from "@/lib/types";
 import { ToolSteps } from "@/components/tool-steps";
 import { CitationCards } from "@/components/citation-card";
+import { Markdown } from "@/components/markdown";
 
 interface ChatTurn {
   query: string;
@@ -14,14 +15,40 @@ interface ChatTurn {
   error: string | null;
 }
 
+// 对话历史 + session_id 存 sessionStorage：切到文档库/阅读再切回来不丢、刷新也在。
+// 后端本就有多轮记忆（langgraph checkpointer + thread_id），前端持久化只为防切页清空。
+const CHAT_KEY = "papermoon:chat";
+
+interface ChatState {
+  turns: ChatTurn[];
+  sessionId: string | null;
+}
+
+function persistChat(turns: ChatTurn[], sessionId: string | null) {
+  sessionStorage.setItem(CHAT_KEY, JSON.stringify({ turns, sessionId }));
+}
+
 export default function ChatPage() {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  // session_id 用 ref 保存：langgraph 后端会返回，带上即可多轮续聊；
-  // handwritten 后端返回 null，则每轮独立（无记忆）。页面对两者都兼容。
+  // session_id 用 ref 保存：langgraph 后端会返回，带上即可多轮续聊。
   const sessionRef = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // 挂载后从 sessionStorage 恢复（放 effect 里避免 SSR 水合不一致）。
+  // 持久化只在「完成」时写（见 send），故存档里不会有 answer===null 的半成品。
+  useEffect(() => {
+    const raw = sessionStorage.getItem(CHAT_KEY);
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw) as ChatState;
+      setTurns(saved.turns ?? []);
+      sessionRef.current = saved.sessionId ?? null;
+    } catch {
+      sessionStorage.removeItem(CHAT_KEY);
+    }
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -49,6 +76,7 @@ export default function ChatPage() {
           citations: res.citations,
           error: res.error,
         };
+        persistChat(next, sessionRef.current); // write-through：仅在完成态落盘
         return next;
       });
     } catch (err) {
@@ -56,6 +84,7 @@ export default function ChatPage() {
       setTurns((prev) => {
         const next = [...prev];
         next[next.length - 1] = { ...next[next.length - 1], answer: null, error: msg };
+        persistChat(next, sessionRef.current);
         return next;
       });
     } finally {
@@ -104,7 +133,9 @@ export default function ChatPage() {
                     <p className="text-danger">{t.error}</p>
                   ) : (
                     <>
-                      <p className="whitespace-pre-wrap text-base text-body">{t.answer}</p>
+                      <div className="text-base text-body">
+                        <Markdown>{t.answer ?? ""}</Markdown>
+                      </div>
                       <ToolSteps steps={t.steps} />
                       <CitationCards citations={t.citations} />
                     </>

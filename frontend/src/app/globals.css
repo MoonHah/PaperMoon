@@ -93,3 +93,109 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
 }
+
+/* ── Markdown 渲染（阅读 / 笔记 / 对话共用）──────────────────────────────
+   颜色继承父容器（阅读面 ink-read、对话面 body），仅元素结构与强调色在此定。
+   overflow-wrap:anywhere 兜住超长不可断 token（如解析残留的 /gidXXXX 串），防超框。 */
+.md-content {
+  color: inherit;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.md-content > :first-child {
+  margin-top: 0;
+}
+.md-content > :last-child {
+  margin-bottom: 0;
+}
+.md-content h1,
+.md-content h2,
+.md-content h3,
+.md-content h4 {
+  color: var(--color-ink);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.6em 0 0.6em;
+}
+.md-content h1 { font-size: 1.6em; }
+.md-content h2 { font-size: 1.35em; }
+.md-content h3 { font-size: 1.15em; }
+.md-content h4 { font-size: 1em; }
+.md-content p,
+.md-content ul,
+.md-content ol,
+.md-content blockquote,
+.md-content table,
+.md-content pre {
+  margin: 0.85em 0;
+}
+.md-content ul,
+.md-content ol {
+  padding-left: 1.5em;
+}
+.md-content ul { list-style: disc; }
+.md-content ol { list-style: decimal; }
+.md-content li { margin: 0.3em 0; }
+.md-content li > ul,
+.md-content li > ol { margin: 0.3em 0; }
+.md-content a {
+  color: var(--color-accent-breeze);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md-content strong { font-weight: 600; color: var(--color-ink); }
+.md-content em { font-style: italic; }
+.md-content code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--color-canvas-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.md-content pre {
+  background: var(--color-canvas-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  padding: 1em;
+  overflow-x: auto;
+}
+.md-content pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85em;
+}
+.md-content blockquote {
+  border-left: 3px solid var(--color-canvas-mid);
+  padding-left: 1em;
+  color: var(--color-mute);
+}
+.md-content hr {
+  border: none;
+  border-top: 1px solid var(--color-hairline);
+  margin: 1.6em 0;
+}
+/* 宽表格：外层可横向滚动，避免撑破阅读栏 */
+.md-content table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+.md-content th,
+.md-content td {
+  border: 1px solid var(--color-hairline);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.md-content th {
+  background: var(--color-canvas-soft);
+  font-weight: 600;
+}
+.md-content img {
+  max-width: 100%;
+  height: auto;
+}
