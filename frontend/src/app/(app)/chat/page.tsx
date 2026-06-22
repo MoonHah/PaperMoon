@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Send } from "lucide-react";
 import { ApiError, runAgent } from "@/lib/api";
 import type { CitedChunk, IntermediateStep } from "@/lib/types";
 import { ToolSteps } from "@/components/tool-steps";
 import { CitationCards } from "@/components/citation-card";
 import { Markdown } from "@/components/markdown";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/input";
 
 interface ChatTurn {
   query: string;
@@ -152,22 +155,24 @@ export default function ChatPage() {
       <div className="sticky bottom-0 border-t border-hairline bg-canvas/90 backdrop-blur">
         <div className="mx-auto max-w-[860px] px-6 py-4">
           <div className="flex items-end gap-3">
-            <textarea
+            <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
               rows={1}
               placeholder="问 Agent…（Enter 发送，Shift+Enter 换行）"
-              className="flex-1 resize-none rounded-sm border border-hairline bg-canvas-soft px-4 py-2.5 text-base text-ink placeholder:text-mute focus:border-canvas-mid focus:outline-none"
+              className="flex-1"
             />
-            <button
-              type="button"
+            <Button
               onClick={send}
-              disabled={busy || !input.trim()}
-              className="rounded-pill bg-ink px-5 py-2.5 text-sm font-medium text-canvas transition-colors hover:bg-ink/90 disabled:opacity-50"
+              disabled={!input.trim()}
+              loading={busy}
+              size="lg"
+              aria-label="发送"
             >
+              {!busy && <Send className="h-4 w-4" aria-hidden />}
               发送
-            </button>
+            </Button>
           </div>
         </div>
       </div>

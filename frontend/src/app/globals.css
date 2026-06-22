@@ -87,6 +87,12 @@
   --text-caption-mono-sm--letter-spacing: 1.2px;
 }
 
+/* Toast/淡入动画（仅 motion-safe 下启用，尊重 prefers-reduced-motion）。 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* 全局默认表面：品牌画布 + 纯白字 + Geist。阅读面用 bg-canvas-read 局部覆盖。 */
 body {
   background-color: var(--color-canvas);

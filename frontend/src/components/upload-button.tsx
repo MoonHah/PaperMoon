@@ -1,8 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Upload } from "lucide-react";
 import { ApiError, uploadDocument } from "@/lib/api";
 import type { DocumentUploadResponse } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 
 const ACCEPT = ".pdf,.md,.txt";
 
@@ -13,7 +16,7 @@ export function UploadButton({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -21,12 +24,12 @@ export function UploadButton({
     if (!file) return;
 
     setBusy(true);
-    setError(null);
     try {
       const doc = await uploadDocument(file);
       onUploaded(doc);
+      toast(`已上传 ${doc.filename}`, "success");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "上传失败");
+      toast(err instanceof ApiError ? err.message : "上传失败", "error");
     } finally {
       setBusy(false);
     }
@@ -41,19 +44,11 @@ export function UploadButton({
         className="hidden"
         onChange={handleChange}
       />
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={busy}
-        className="rounded-pill bg-ink px-4 py-1.5 text-sm font-medium text-canvas transition-colors hover:bg-ink/90 disabled:opacity-50"
-      >
+      <Button onClick={() => inputRef.current?.click()} loading={busy}>
+        {!busy && <Upload className="h-4 w-4" aria-hidden />}
         {busy ? "上传中…" : "上传文档"}
-      </button>
-      {error ? (
-        <span className="text-sm text-danger">{error}</span>
-      ) : (
-        <span className="text-xs text-mute">支持 .pdf / .md / .txt</span>
-      )}
+      </Button>
+      <span className="text-xs text-mute">支持 .pdf / .md / .txt</span>
     </div>
   );
 }

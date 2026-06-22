@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { Sparkles } from "lucide-react";
 import { ApiError, generateDocumentNotes } from "@/lib/api";
 import { Markdown } from "@/components/markdown";
+import { Button } from "@/components/ui/button";
 
 // 笔记 tab：调专用接口按 document_id 精确生成（不走 Agent，避免指代歧义）。
 // 生成结果按 docId 存入 sessionStorage：切到「阅读」再切回来不丢、刷新也在
@@ -39,14 +41,10 @@ export default function NotesTab() {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={generate}
-        disabled={busy}
-        className="rounded-pill bg-ink px-4 py-1.5 text-sm font-medium text-canvas transition-colors hover:bg-ink/90 disabled:opacity-50"
-      >
+      <Button type="button" onClick={generate} loading={busy}>
+        {!busy && <Sparkles className="h-4 w-4" aria-hidden />}
         {busy ? "生成中…" : note ? "重新生成" : "生成学习笔记"}
-      </button>
+      </Button>
 
       {error && <p className="mt-3 text-danger">{error}</p>}
 

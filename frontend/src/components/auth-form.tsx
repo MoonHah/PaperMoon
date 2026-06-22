@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, loginUser, registerUser } from "@/lib/api";
 import { setToken } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
@@ -41,34 +43,31 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       <h1 className="mt-8 text-display-sm">{isLogin ? "登录" : "注册"}</h1>
 
       <form onSubmit={submit} className="mt-6 space-y-3">
-        <input
+        <Input
           type="email"
           required
+          autoFocus
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="邮箱"
-          className="w-full rounded-sm border border-hairline bg-canvas-soft px-4 py-2.5 text-base text-ink placeholder:text-mute focus:border-canvas-mid focus:outline-none"
         />
-        <input
+        <Input
           type="password"
           required
           minLength={8}
+          autoComplete={isLogin ? "current-password" : "new-password"}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="密码（≥8 位，含字母和数字）"
-          className="w-full rounded-sm border border-hairline bg-canvas-soft px-4 py-2.5 text-base text-ink placeholder:text-mute focus:border-canvas-mid focus:outline-none"
         />
         {!isLogin && !error && (
           <p className="text-sm text-mute">至少 8 位，需同时包含字母和数字。</p>
         )}
         {error && <p className="text-sm text-danger">{error}</p>}
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-pill bg-ink px-5 py-2.5 text-sm font-medium text-canvas transition-colors hover:bg-ink/90 disabled:opacity-50"
-        >
-          {busy ? "处理中…" : isLogin ? "登录" : "注册"}
-        </button>
+        <Button type="submit" size="lg" loading={busy} className="w-full">
+          {isLogin ? "登录" : "注册"}
+        </Button>
       </form>
 
       <p className="mt-4 text-sm text-mute">

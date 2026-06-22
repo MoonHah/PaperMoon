@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { getMe } from "@/lib/api";
 import { clearToken, getToken } from "@/lib/auth";
+import { Button, buttonClasses } from "@/components/ui/button";
 
 type NavLink = { href: string; label: string; disabled?: boolean };
 
@@ -70,22 +72,16 @@ export function NavBar() {
           {/* 账户区：已登录显邮箱 + 退出，未登录显登录链接 */}
           {email ? (
             <div className="flex items-center gap-2">
-              <span className="max-w-[160px] truncate text-sm text-mute" title={email}>
+              <span className="hidden max-w-[160px] truncate text-sm text-mute sm:inline" title={email}>
                 {email}
               </span>
-              <button
-                type="button"
-                onClick={logout}
-                className="rounded-pill border border-hairline px-3 py-1.5 text-sm text-body transition-colors hover:text-ink"
-              >
-                退出
-              </button>
+              <Button type="button" variant="outline" size="sm" onClick={logout}>
+                <LogOut className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">退出</span>
+              </Button>
             </div>
           ) : (
-            <Link
-              href="/login"
-              className="rounded-pill border border-hairline px-4 py-1.5 text-sm text-ink transition-colors hover:bg-canvas-soft"
-            >
+            <Link href="/login" className={buttonClasses("outline", "sm")}>
               登录
             </Link>
           )}
