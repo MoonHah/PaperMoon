@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FileText } from "lucide-react";
 import type { DocumentResponse } from "@/lib/types";
 import { StatusPill } from "./status-pill";
 
@@ -16,14 +17,17 @@ export function DocumentCard({ doc }: { doc: DocumentResponse }) {
   const inner = (
     <>
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate text-base text-ink" title={doc.filename}>
-            {doc.filename}
-          </p>
-          <p className="mt-1 font-mono text-caption-mono-sm uppercase text-mute">
-            {doc.file_type}
-            {doc.chunk_count != null ? ` · ${doc.chunk_count} chunks` : ""}
-          </p>
+        <div className="flex min-w-0 items-start gap-3">
+          <FileText className="mt-0.5 h-5 w-5 shrink-0 text-mute" aria-hidden />
+          <div className="min-w-0">
+            <p className="truncate text-base text-ink" title={doc.filename}>
+              {doc.filename}
+            </p>
+            <p className="mt-1 font-mono text-caption-mono-sm uppercase text-mute">
+              {doc.file_type}
+              {doc.chunk_count != null ? ` · ${doc.chunk_count} chunks` : ""}
+            </p>
+          </div>
         </div>
         <StatusPill status={doc.status} />
       </div>
@@ -42,7 +46,7 @@ export function DocumentCard({ doc }: { doc: DocumentResponse }) {
     return (
       <Link
         href={`/documents/${doc.document_id}`}
-        className="block rounded-sm border border-hairline bg-canvas-card p-6 transition-colors hover:border-canvas-mid"
+        className="block rounded-sm border border-hairline bg-canvas-card p-6 transition-all hover:border-canvas-mid motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-dropdown"
       >
         {inner}
       </Link>

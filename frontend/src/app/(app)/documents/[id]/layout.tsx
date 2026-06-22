@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
+import { ArrowLeft, BookOpen, NotebookPen } from "lucide-react";
 import { getDocument } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // 文档工作区：返回 + 标题 + 标签页（阅读/笔记），内容由嵌套路由渲染。
 export default function DocumentWorkspaceLayout({
@@ -29,32 +31,43 @@ export default function DocumentWorkspaceLayout({
   }, [id]);
 
   const tabs = [
-    { href: `/documents/${id}/read`, label: "阅读" },
-    { href: `/documents/${id}/notes`, label: "笔记" },
+    { href: `/documents/${id}/read`, label: "阅读", icon: BookOpen },
+    { href: `/documents/${id}/notes`, label: "笔记", icon: NotebookPen },
   ];
 
   return (
     <div className="mx-auto max-w-[760px] px-6 py-8">
-      <Link href="/documents" className="text-sm text-mute transition-colors hover:text-ink">
-        ← 文档库
+      <Link
+        href="/documents"
+        className="inline-flex items-center gap-1 text-sm text-mute transition-colors hover:text-ink"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden />
+        文档库
       </Link>
-      <h1 className="mt-4 truncate text-read-heading" title={filename ?? undefined}>
-        {filename ?? "…"}
-      </h1>
+      {filename === null ? (
+        <Skeleton className="mt-4 h-7 w-2/3" />
+      ) : (
+        <h1 className="mt-4 truncate text-read-heading" title={filename}>
+          {filename}
+        </h1>
+      )}
 
       <nav className="mt-4 flex gap-1 border-b border-hairline">
         {tabs.map((t) => {
           const active = pathname === t.href;
+          const Icon = t.icon;
           return (
             <Link
               key={t.href}
               href={t.href}
-              className={`-mb-px border-b-2 px-4 py-2 text-sm transition-colors ${
+              aria-current={active ? "page" : undefined}
+              className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm transition-colors ${
                 active
                   ? "border-accent-breeze font-semibold text-ink"
                   : "border-transparent text-mute hover:text-ink"
               }`}
             >
+              <Icon className="h-4 w-4" aria-hidden />
               {t.label}
             </Link>
           );

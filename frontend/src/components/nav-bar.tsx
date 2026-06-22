@@ -3,16 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { Library, LogOut, MessageSquare, type LucideIcon } from "lucide-react";
 import { getMe } from "@/lib/api";
 import { clearToken, getToken } from "@/lib/auth";
 import { Button, buttonClasses } from "@/components/ui/button";
 
-type NavLink = { href: string; label: string; disabled?: boolean };
+type NavLink = { href: string; label: string; icon: LucideIcon; disabled?: boolean };
 
 const LINKS: NavLink[] = [
-  { href: "/documents", label: "文档库" },
-  { href: "/chat", label: "对话" },
+  { href: "/documents", label: "文档库", icon: Library },
+  { href: "/chat", label: "对话", icon: MessageSquare },
 ];
 
 export function NavBar() {
@@ -56,12 +56,14 @@ export function NavBar() {
                 <li key={l.href}>
                   <Link
                     href={l.href}
-                    className={`rounded-pill px-4 py-1.5 text-sm transition-colors ${
+                    aria-current={pathname.startsWith(l.href) ? "page" : undefined}
+                    className={`inline-flex items-center gap-1.5 rounded-pill px-4 py-1.5 text-sm transition-colors ${
                       pathname.startsWith(l.href)
                         ? "bg-canvas-soft font-semibold text-ink"
                         : "text-body hover:text-ink"
                     }`}
                   >
+                    <l.icon className="h-4 w-4" aria-hidden />
                     {l.label}
                   </Link>
                 </li>

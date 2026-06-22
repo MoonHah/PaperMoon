@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertCircle, Inbox } from "lucide-react";
 import { ApiError, getDocumentStatus, listDocuments } from "@/lib/api";
 import {
   TERMINAL_STATUSES,
@@ -10,6 +11,7 @@ import {
 import { UploadButton } from "@/components/upload-button";
 import { DocumentCard } from "@/components/document-card";
 import { EmptyState } from "@/components/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_TICKS = 48; // 上限 ≈ 2 分钟：超时仍未落终态则停止轮询，避免对僵尸文档无限请求
@@ -110,11 +112,29 @@ export default function DocumentsPage() {
 
       <div className="mt-8">
         {docs === null ? (
-          <EmptyState title="加载中…" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-sm border border-hairline bg-canvas-card p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </div>
+                  <Skeleton className="h-5 w-16 rounded-pill" />
+                </div>
+                <Skeleton className="mt-6 h-3 w-1/2" />
+              </div>
+            ))}
+          </div>
         ) : error && docs.length === 0 ? (
-          <EmptyState title="加载失败" hint={error} />
+          <EmptyState icon={AlertCircle} title="加载失败" hint={error} />
         ) : docs.length === 0 ? (
-          <EmptyState title="还没有文档" hint="上传一篇 .pdf / .md / .txt 开始" />
+          <EmptyState
+            icon={Inbox}
+            title="还没有文档"
+            hint="上传一篇 .pdf / .md / .txt 开始你的阅读与对话"
+            action={<UploadButton onUploaded={handleUploaded} />}
+          />
         ) : (
           <>
             {pollPaused && docs.some(isPending) && (
