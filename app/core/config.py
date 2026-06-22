@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     # File upload
     max_file_size_mb: int = 10
 
+    # PDF 文本层乱码回退 OCR 的阈值：当解析结果中 /gidNNN 字形索引（内嵌字体缺
+    # ToUnicode 映射的退化产物，常见于中文学术 PDF）占字符比例超过此值，
+    # 就用强制全页 OCR 重解析。设 0 则禁用回退。
+    parse_ocr_gid_threshold: float = 0.02
+
     # 文档处理任务时限（Celery）。需容纳首个 PDF 的 Docling 冷启动（首次下载版面模型，
     # 即便有缓存卷，第一次仍需下载）+ 大 PDF 的 CPU 解析。soft 先抛 SoftTimeLimitExceeded
     # 可被捕获置 FAILED；hard 是兜底硬杀。
