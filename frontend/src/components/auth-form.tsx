@@ -55,9 +55,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="密码（至少 8 位）"
+          placeholder="密码（≥8 位，含字母和数字）"
           className="w-full rounded-sm border border-hairline bg-canvas-soft px-4 py-2.5 text-base text-ink placeholder:text-mute focus:border-canvas-mid focus:outline-none"
         />
+        {!isLogin && !error && (
+          <p className="text-sm text-mute">至少 8 位，需同时包含字母和数字。</p>
+        )}
         {error && <p className="text-sm text-danger">{error}</p>}
         <button
           type="submit"
