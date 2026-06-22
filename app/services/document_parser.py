@@ -23,8 +23,9 @@ def _build_pipeline_options(force_ocr: bool):
     # 关 TableFormer：省一份 HF 表格模型依赖（与既有 Docker 配置保持一致）。
     opts.do_table_structure = False
     if force_ocr:
-        # 强制对每页位图 OCR，彻底忽略坏文本层。RapidOCR 用随 wheel 打包的
-        # ch_PP-OCRv4（中英文通吃）ONNX 模型，离线可用、无需额外下载。
+        # 强制对每页位图 OCR，彻底忽略坏文本层。RapidOCR 首次使用时从 modelscope.cn
+        # （国内站，~11MB）拉取 ch_PP-OCRv4 中英文模型并缓存进 venv——不走 HF Hub，
+        # 国内直连可用；但容器重建后会重下（如需固化见 docker-compose 模型卷/构建预热）。
         opts.do_ocr = True
         opts.ocr_options = RapidOcrOptions(force_full_page_ocr=True)
     return opts
