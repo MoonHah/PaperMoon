@@ -81,6 +81,15 @@ def get_document(doc: Document = Depends(get_owned_document)):
     return doc
 
 
+@router.delete("/{document_id}", status_code=204)
+def delete_document(
+    doc: Document = Depends(get_owned_document),
+    session: Session = Depends(get_db),
+):
+    # get_owned_document 已做归属校验（非属主 404）；session 与依赖内同一请求会话。
+    document_service.delete(session, doc)
+
+
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     file: UploadFile = File(...),

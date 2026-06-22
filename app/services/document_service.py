@@ -11,6 +11,7 @@ from app.models.document import Document, DocumentStatus
 from app.repositories import document_repository
 from app.services.document_parser import parse_document
 from app.services.llm_service import get_llm_service
+from app.services.vector_store import get_vector_store
 from app.workers import document_tasks
 
 logger = logging.getLogger(__name__)
@@ -133,6 +134,32 @@ def get_content(session: Session, user_id: str, document_id: str) -> tuple[str, 
             message="Document content is unavailable.",
             status_code=404,
         )
+
+
+def delete(session: Session, doc: Document) -> None:
+    """删除文档：先删 DB 行（真相源）并提交，再尽力清理向量与存储文件。
+
+    顺序刻意：DB 先删，外部副作用（Qdrant/文件）best-effort 且失败不回滚 DB——
+    宁可留下可后续清理的孤儿向量/文件，也不要"DB 仍有记录但内容已损"的坏状态。
+    doc 由路由经 get_owned_document 依赖加载（已做归属校验）。
+    """
+    document_id = doc.document_id
+    file_type = doc.file_type
+
+    session.delete(doc)
+    session.commit()
+
+    try:
+        get_vector_store(settings).delete_by_document_id(document_id)
+    except Exception as e:
+        logger.warning("删除向量失败 %s: %s", document_id, e)
+
+    storage_dir = Path(settings.storage_path)
+    for name in (f"{document_id}{file_type}", f"{document_id}.content.md"):
+        try:
+            (storage_dir / name).unlink(missing_ok=True)
+        except Exception as e:
+            logger.warning("删除存储文件失败 %s: %s", name, e)
 
 
 def generate_notes(session: Session, user_id: str, document_id: str) -> tuple[str, str]:

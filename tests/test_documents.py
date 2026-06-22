@@ -148,3 +148,31 @@ def test_duplicate_content_is_deduplicated(client: TestClient):
     assert r1["document_id"] == r2["document_id"]
     docs = client.get("/api/v1/documents/").json()
     assert len(docs) == 1
+
+
+# ── Delete ───────────────────────────────────────────────────────────────────
+
+def test_delete_document_removes_it(client: TestClient):
+    doc_id = client.post(
+        "/api/v1/documents/upload", files=[_txt_file()]
+    ).json()["document_id"]
+
+    assert client.delete(f"/api/v1/documents/{doc_id}").status_code == 204
+    assert client.get(f"/api/v1/documents/{doc_id}").status_code == 404
+    assert client.get("/api/v1/documents/").json() == []
+
+
+def test_delete_nonexistent_returns_404(client: TestClient):
+    assert client.delete("/api/v1/documents/nope").status_code == 404
+
+
+def test_delete_not_owner_returns_404(anon_client: TestClient):
+    a = _auth_headers(anon_client, "a@del.com")
+    b = _auth_headers(anon_client, "b@del.com")
+    doc_id = anon_client.post(
+        "/api/v1/documents/upload", files=[_txt_file(content="A owns", name="a.txt")], headers=a
+    ).json()["document_id"]
+
+    # B 删 A 的文档 → 404，且 A 仍持有
+    assert anon_client.delete(f"/api/v1/documents/{doc_id}", headers=b).status_code == 404
+    assert len(anon_client.get("/api/v1/documents/", headers=a).json()) == 1
