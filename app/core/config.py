@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 10080      # 7 天
 
+    # 注册时是否校验邮箱域名 MX 可投递性（查域名有无邮件服务器，拦编造域名如 hh.hh）。
+    # 走 DNS，故测试需关闭（example.com 等无 MX 会被拒）；网络不稳时也可应急关闭。
+    auth_check_email_deliverability: bool = True
+
     # Reranking
     rerank_enabled: bool = False
     rerank_fetch_k: int = 20

@@ -17,6 +17,8 @@ os.environ["EMBEDDING_MODE"] = "mock"
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 # 给测试设真 JWT_SECRET：lifespan 安全闸在非 debug 下会拒绝默认密钥启动（TestClient 会触发 lifespan）。
 os.environ["JWT_SECRET"] = "test-jwt-secret-32bytes-minimum-abcdef0123456789"
+# 关闭邮箱 MX 可投递性校验：测试用 example.com / b.com 等无 MX 记录，否则注册全被拒。
+os.environ["AUTH_CHECK_EMAIL_DELIVERABILITY"] = "false"
 
 from collections.abc import Generator
 

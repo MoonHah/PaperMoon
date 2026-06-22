@@ -61,6 +61,75 @@ def test_duplicate_email_race_falls_back_to_409(anon_client: TestClient, monkeyp
     assert resp.status_code == 409
 
 
+# ── 注册收紧：密码策略 + 邮箱规范化/校验 ──────────────────────────────────
+
+@pytest.mark.parametrize(
+    "email,password,reason",
+    [
+        ("p1@test.com", "short1", "至少 8 位"),         # 不足 8 位
+        ("p2@test.com", "abcdefgh", "字母和数字"),       # 无数字
+        ("p3@test.com", "12345678", "字母和数字"),       # 无字母
+        ("p4@test.com", "password1", "过于常见"),        # 命中弱密码黑名单
+        ("danielx@test.com", "danielx12", "邮箱名"),     # 包含邮箱本地名
+    ],
+)
+def test_register_rejects_weak_password(anon_client: TestClient, email, password, reason):
+    resp = anon_client.post(
+        "/api/v1/auth/register", json={"email": email, "password": password}
+    )
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["error_code"] == "WEAK_PASSWORD"
+    assert reason in body["message"]
+
+
+def test_register_rejects_malformed_email(anon_client: TestClient):
+    resp = anon_client.post(
+        "/api/v1/auth/register", json={"email": "notanemail", "password": "secret123"}
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error_code"] == "INVALID_EMAIL"
+
+
+def test_register_normalizes_email_case(anon_client: TestClient):
+    # 大小写混写注册 → 存储为小写；不同大小写视为同一邮箱（去重 + 登录均匹配）。
+    anon_client.post(
+        "/api/v1/auth/register", json={"email": "Foo@Example.COM", "password": "secret123"}
+    )
+    dup = anon_client.post(
+        "/api/v1/auth/register", json={"email": "foo@example.com", "password": "secret123"}
+    )
+    assert dup.status_code == 409  # 视为重复
+
+    token = anon_client.post(
+        "/api/v1/auth/login", json={"email": "FOO@EXAMPLE.com", "password": "secret123"}
+    ).json()["access_token"]
+    me = anon_client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.json()["email"] == "foo@example.com"
+
+
+def test_register_rejects_undeliverable_email_when_check_enabled(anon_client, monkeypatch):
+    # 打开 MX 校验开关，并 monkeypatch validate_email 抛错（不打真实 DNS），
+    # 验证“开关透传 + 不可投递 → 400 INVALID_EMAIL”。
+    import app.services.auth_service as auth_service
+    from app.core.config import settings
+    from email_validator import EmailNotValidError
+
+    monkeypatch.setattr(settings, "auth_check_email_deliverability", True)
+
+    def fake_validate(email, check_deliverability=False, **kw):
+        assert check_deliverability is True  # 开关确实透传到了校验
+        raise EmailNotValidError("no MX")
+
+    monkeypatch.setattr(auth_service, "validate_email", fake_validate)
+
+    resp = anon_client.post(
+        "/api/v1/auth/register", json={"email": "x@hh.hh", "password": "secret123"}
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error_code"] == "INVALID_EMAIL"
+
+
 def test_startup_rejects_default_jwt_secret_in_prod(monkeypatch):
     # 安全闸：非 debug + 默认 JWT 密钥 → lifespan 启动应直接拒绝（防伪造 token）
     from app.core.config import DEV_JWT_SECRET, settings
