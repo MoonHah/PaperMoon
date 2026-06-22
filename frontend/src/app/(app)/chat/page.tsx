@@ -129,7 +129,7 @@ export default function ChatPage() {
                 <div className="border-l-2 border-accent-breeze pl-4">
                   {t.answer === null && !t.error ? (
                     <p className="flex items-center gap-2 text-body">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-breeze" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent-breeze motion-safe:animate-pulse" />
                       思考中…
                     </p>
                   ) : t.error ? (

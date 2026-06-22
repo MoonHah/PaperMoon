@@ -13,7 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PaperMoon",
+  // 子路由设 title 时自动拼成「对话 · PaperMoon」；无则用 default。
+  title: { default: "PaperMoon", template: "%s · PaperMoon" },
   description: "面向论文与技术文档的 RAG + Agent 智能阅读平台",
 };
 

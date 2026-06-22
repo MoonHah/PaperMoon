@@ -37,7 +37,7 @@ export function NavBar() {
       <nav className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-3">
         <Link href="/documents" className="flex items-baseline gap-2">
           <span className="text-display-xs">PaperMoon</span>
-          <span className="font-mono text-caption-mono-sm uppercase text-mute">
+          <span className="hidden font-mono text-caption-mono-sm uppercase text-mute sm:inline">
             RAG · Agent
           </span>
         </Link>
@@ -56,15 +56,16 @@ export function NavBar() {
                 <li key={l.href}>
                   <Link
                     href={l.href}
+                    aria-label={l.label}
                     aria-current={pathname.startsWith(l.href) ? "page" : undefined}
-                    className={`inline-flex items-center gap-1.5 rounded-pill px-4 py-1.5 text-sm transition-colors ${
+                    className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-sm transition-colors sm:px-4 ${
                       pathname.startsWith(l.href)
                         ? "bg-canvas-soft font-semibold text-ink"
                         : "text-body hover:text-ink"
                     }`}
                   >
                     <l.icon className="h-4 w-4" aria-hidden />
-                    {l.label}
+                    <span className="hidden sm:inline">{l.label}</span>
                   </Link>
                 </li>
               ),
