@@ -4,6 +4,7 @@ services:
 
   postgres:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: papermoon
@@ -22,10 +23,12 @@ services:
 
   redis:
     image: redis:7
+    restart: unless-stopped
     # Redis 启动极快，不需要 healthcheck
 
   qdrant:
     image: qdrant/qdrant
+    restart: unless-stopped
     ports:
       - "6333:6333"
     volumes:
@@ -37,6 +40,7 @@ services:
     build:
       context: ./model_service
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "8009:8009"
     env_file:
@@ -49,6 +53,7 @@ services:
 
   api:
     build: .
+    restart: unless-stopped
     command: uvicorn app.main:app --host 0.0.0.0 --port 8008
     ports:
       - "8008:8008"
@@ -77,6 +82,7 @@ services:
 
   worker:
     build: .
+    restart: unless-stopped
     command: celery -A app.workers.celery_app.celery_app worker --loglevel=info --pool=solo
     env_file:
       - .env
