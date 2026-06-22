@@ -1,7 +1,13 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import { FileText, Trash2 } from "lucide-react";
+import { ApiError, deleteDocument } from "@/lib/api";
 import type { DocumentResponse } from "@/lib/types";
 import { StatusPill } from "./status-pill";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 
 function formatDate(iso: string): string {
   try {
@@ -11,9 +17,71 @@ function formatDate(iso: string): string {
   }
 }
 
-export function DocumentCard({ doc }: { doc: DocumentResponse }) {
+export function DocumentCard({
+  doc,
+  onDeleted,
+}: {
+  doc: DocumentResponse;
+  onDeleted?: (id: string) => void;
+}) {
+  const { toast } = useToast();
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   // READY 才可点进阅读页；其余状态不跳（正文还没好）。
   const clickable = doc.status === "READY";
+
+  // 卡片是 <Link> 时，删除控件的点击必须阻止默认跳转 + 冒泡。
+  function stop(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  async function confirmDelete(e: React.MouseEvent) {
+    stop(e);
+    setDeleting(true);
+    try {
+      await deleteDocument(doc.document_id);
+      toast(`已删除 ${doc.filename}`, "success");
+      onDeleted?.(doc.document_id);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "删除失败", "error");
+      setDeleting(false);
+      setConfirming(false);
+    }
+  }
+
+  const deleteControl = confirming ? (
+    <span className="inline-flex items-center gap-1.5">
+      <Button variant="danger" size="sm" loading={deleting} onClick={confirmDelete}>
+        删除
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={deleting}
+        onClick={(e) => {
+          stop(e);
+          setConfirming(false);
+        }}
+      >
+        取消
+      </Button>
+    </span>
+  ) : (
+    <button
+      type="button"
+      aria-label="删除文档"
+      onClick={(e) => {
+        stop(e);
+        setConfirming(true);
+      }}
+      className="rounded-pill p-1.5 text-mute transition-colors hover:bg-canvas-soft hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-breeze"
+    >
+      <Trash2 className="h-4 w-4" aria-hidden />
+    </button>
+  );
+
   const inner = (
     <>
       <div className="flex items-start justify-between gap-4">
@@ -29,7 +97,10 @@ export function DocumentCard({ doc }: { doc: DocumentResponse }) {
             </p>
           </div>
         </div>
-        <StatusPill status={doc.status} />
+        <div className="flex shrink-0 items-center gap-2">
+          <StatusPill status={doc.status} />
+          {deleteControl}
+        </div>
       </div>
 
       {doc.status === "FAILED" && doc.error_message && (

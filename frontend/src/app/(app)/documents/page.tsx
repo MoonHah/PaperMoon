@@ -80,6 +80,10 @@ export default function DocumentsPage() {
     return () => clearInterval(timer);
   }, [docs, pollPaused]);
 
+  function handleDeleted(id: string) {
+    setDocs((prev) => (prev ? prev.filter((d) => d.document_id !== id) : prev));
+  }
+
   function handleUploaded(doc: DocumentUploadResponse) {
     // 新上传：重置轮询计数与暂停态，让新文档能被轮询到终态。
     pollTicksRef.current = 0;
@@ -144,7 +148,7 @@ export default function DocumentsPage() {
             )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {docs.map((d) => (
-                <DocumentCard key={d.document_id} doc={d} />
+                <DocumentCard key={d.document_id} doc={d} onDeleted={handleDeleted} />
               ))}
             </div>
           </>

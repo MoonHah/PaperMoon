@@ -54,6 +54,7 @@ async function request<T>(
       }
       throw new ApiError(res.status, detail);
     }
+    if (res.status === 204) return undefined as T; // 无内容响应（如 DELETE）
     return (await res.json()) as T;
   } catch (err) {
     if (err instanceof ApiError) throw err;
@@ -90,6 +91,10 @@ export function getMe(): Promise<UserResponse> {
 
 export function getDocument(id: string): Promise<DocumentResponse> {
   return request<DocumentResponse>(`/api/v1/documents/${id}`);
+}
+
+export function deleteDocument(id: string): Promise<void> {
+  return request<void>(`/api/v1/documents/${id}`, { method: "DELETE" });
 }
 
 export function listDocuments(): Promise<DocumentResponse[]> {

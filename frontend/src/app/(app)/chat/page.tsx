@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import { Send, SquarePen } from "lucide-react";
 import { ApiError, runAgent } from "@/lib/api";
 import type { CitedChunk, IntermediateStep } from "@/lib/types";
 import { ToolSteps } from "@/components/tool-steps";
@@ -102,12 +102,27 @@ export default function ChatPage() {
     }
   }
 
+  function resetChat() {
+    if (busy) return;
+    setTurns([]);
+    sessionRef.current = null; // 下条消息 session_id=null → 后端开新会话
+    sessionStorage.removeItem(CHAT_KEY);
+  }
+
   return (
     <div className="min-h-full">
       <div className="mx-auto max-w-[860px] px-6 pb-32">
-        <header className="py-6">
-          <p className="font-mono text-caption-mono uppercase text-mute">Agent</p>
-          <h1 className="mt-1 text-display-sm">对话</h1>
+        <header className="flex items-end justify-between gap-4 py-6">
+          <div>
+            <p className="font-mono text-caption-mono uppercase text-mute">Agent</p>
+            <h1 className="mt-1 text-display-sm">对话</h1>
+          </div>
+          {turns.length > 0 && (
+            <Button variant="outline" size="sm" onClick={resetChat} disabled={busy}>
+              <SquarePen className="h-3.5 w-3.5" aria-hidden />
+              新对话
+            </Button>
+          )}
         </header>
 
         <div className="space-y-6">
