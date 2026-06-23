@@ -2,6 +2,7 @@ import { clearToken, getToken } from "./auth";
 import type {
   AgentRunRequest,
   AgentRunResponse,
+  DocumentChunksResponse,
   DocumentContentResponse,
   DocumentNotesResponse,
   DocumentResponse,
@@ -109,6 +110,27 @@ export function getDocumentStatus(id: string): Promise<DocumentStatusResponse> {
 
 export function getDocumentContent(id: string): Promise<DocumentContentResponse> {
   return request<DocumentContentResponse>(`/api/v1/documents/${id}/content`);
+}
+
+export function getDocumentChunks(id: string): Promise<DocumentChunksResponse> {
+  return request<DocumentChunksResponse>(`/api/v1/documents/${id}/chunks`);
+}
+
+// 拉原件为 blob（带 Bearer）→ 调用方生成 object URL 内嵌。
+// <iframe src> 无法携带鉴权头，故不能直接指向 /file，必须先鉴权 fetch 成 blob。
+export async function fetchDocumentFile(id: string): Promise<Blob> {
+  const token = getToken();
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`/api/v1/documents/${id}/file`, { headers });
+  if (!res.ok) {
+    if (res.status === 401 && token && typeof window !== "undefined") {
+      clearToken();
+      window.location.href = "/login";
+    }
+    throw new ApiError(res.status, "无法加载原件");
+  }
+  return res.blob();
 }
 
 export function generateDocumentNotes(id: string): Promise<DocumentNotesResponse> {

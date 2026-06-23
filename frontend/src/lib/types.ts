@@ -47,6 +47,19 @@ export interface DocumentNotesResponse {
   notes: string;
 }
 
+export interface DocumentChunk {
+  index: number;
+  text: string;
+  char_count: number;
+}
+
+export interface DocumentChunksResponse {
+  document_id: string;
+  filename: string;
+  chunk_count: number;
+  chunks: DocumentChunk[];
+}
+
 // 处理已结束的终态：轮询到这两个状态即可停止。
 export const TERMINAL_STATUSES: DocStatus[] = ["READY", "FAILED"];
 

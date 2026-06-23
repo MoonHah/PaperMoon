@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { ArrowLeft, BookOpen, NotebookPen } from "lucide-react";
+import { ArrowLeft, BookOpen, Boxes, NotebookPen } from "lucide-react";
 import { getDocument } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -32,6 +32,7 @@ export default function DocumentWorkspaceLayout({
 
   const tabs = [
     { href: `/documents/${id}/read`, label: "阅读", icon: BookOpen },
+    { href: `/documents/${id}/chunks`, label: "分块", icon: Boxes },
     { href: `/documents/${id}/notes`, label: "笔记", icon: NotebookPen },
   ];
 
