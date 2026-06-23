@@ -162,13 +162,25 @@ def delete(session: Session, doc: Document) -> None:
             logger.warning("删除存储文件失败 %s: %s", name, e)
 
 
+def _truncate_for_notes(content: str) -> str:
+    """把正文截断到 settings.notes_max_chars，避免大文档全文塞进单次 LLM 调用导致超时。
+    设 0 表示不截断。超长文档因此只覆盖前段——可接受的廉价档取舍（完整覆盖需 map-reduce）。
+    """
+    limit = settings.notes_max_chars
+    if limit and len(content) > limit:
+        logger.info("notes 正文截断 %d→%d 字符 (notes_max_chars)", len(content), limit)
+        return content[:limit]
+    return content
+
+
 def generate_notes(session: Session, user_id: str, document_id: str) -> tuple[str, str]:
     """为单篇文档生成 Markdown 学习笔记，返回 (filename, notes)。
 
-    确定性操作：按 document_id 精确锁定、喂全文给 LLM（区别于 Agent 通用对话——
+    确定性操作：按 document_id 精确锁定、喂正文给 LLM（区别于 Agent 通用对话——
     后者忽略 document_ids，且 generate_markdown_notes 工具只按 query 全库检索）。
+    正文按 notes_max_chars 截断，保证单次调用快而稳（见 _truncate_for_notes）。
     """
     filename, content = get_content(session, user_id, document_id)
     llm = get_llm_service(settings)
-    notes = llm.chat(_NOTES_PROMPT, context_chunks=[content])
+    notes = llm.chat(_NOTES_PROMPT, context_chunks=[_truncate_for_notes(content)])
     return filename, notes

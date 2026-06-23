@@ -176,3 +176,35 @@ def test_delete_not_owner_returns_404(anon_client: TestClient):
     # B 删 A 的文档 → 404，且 A 仍持有
     assert anon_client.delete(f"/api/v1/documents/{doc_id}", headers=b).status_code == 404
     assert len(anon_client.get("/api/v1/documents/", headers=a).json()) == 1
+
+
+# ── Notes ────────────────────────────────────────────────────────────────────
+
+def test_truncate_for_notes_caps_and_passes_through(monkeypatch):
+    from app.core.config import settings
+    from app.services import document_service
+
+    monkeypatch.setattr(settings, "notes_max_chars", 100)
+    assert len(document_service._truncate_for_notes("x" * 500)) == 100
+    assert document_service._truncate_for_notes("short") == "short"
+
+    monkeypatch.setattr(settings, "notes_max_chars", 0)  # 0 = 不截断
+    assert len(document_service._truncate_for_notes("x" * 500)) == 500
+
+
+def test_generate_notes_on_not_ready_doc_returns_409(client: TestClient):
+    # 上传后状态 UPLOADED（worker 被 mock 不会处理）→ 笔记应 409 未就绪（AppError 照常透出，非 503）
+    doc_id = client.post("/api/v1/documents/upload", files=[_txt_file()]).json()["document_id"]
+    assert client.post(f"/api/v1/documents/{doc_id}/notes").status_code == 409
+
+
+def test_generate_notes_returns_503_on_internal_failure(client: TestClient, monkeypatch):
+    # LLM 等内部失败 → 兜成友好 503，而非裸 500
+    doc_id = client.post("/api/v1/documents/upload", files=[_txt_file()]).json()["document_id"]
+    from app.services import document_service
+
+    def boom(*a, **k):
+        raise RuntimeError("llm down")
+
+    monkeypatch.setattr(document_service, "generate_notes", boom)
+    assert client.post(f"/api/v1/documents/{doc_id}/notes").status_code == 503

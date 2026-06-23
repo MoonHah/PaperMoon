@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.errors import AppError
 from app.core.security import get_current_user
 from app.models.document import Document
 from app.models.user import User
@@ -69,8 +70,15 @@ def generate_document_notes(
     session: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # 确定性地为单篇文档生成笔记（按 document_id 锁定，喂全文）——不走 Agent，避免指代歧义。
-    filename, notes = document_service.generate_notes(session, user.id, document_id)
+    # 确定性地为单篇文档生成笔记（按 document_id 锁定，喂截断后的正文）——不走 Agent，避免指代歧义。
+    try:
+        filename, notes = document_service.generate_notes(session, user.id, document_id)
+    except AppError:
+        raise  # 业务错误（404 未找到 / 409 未就绪 / 内容缺失）交全局处理器渲染
+    except Exception as e:
+        # LLM 超时/失败等：兜成友好 503，避免裸 500（Internal Server Error）
+        logger.error("notes generation failed [%s]: %s", type(e).__name__, e)
+        raise HTTPException(status_code=503, detail="笔记生成暂时失败，请稍后重试。")
     return DocumentNotesResponse(
         document_id=document_id, filename=filename, notes=notes
     )

@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     chunk_size: int = 500
     chunk_overlap: int = 50
 
+    # 生成笔记时喂给 LLM 的正文上限（字符）。大文档全文塞进单次调用会超时/不稳，
+    # 故截断到此预算保证调用快而稳；设 0 不截断。代价：超长文档笔记仅覆盖前段。
+    notes_max_chars: int = 10000
+
     # File upload
     max_file_size_mb: int = 10
 
