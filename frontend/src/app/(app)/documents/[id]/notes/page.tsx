@@ -46,10 +46,10 @@ export default function NotesTab() {
         {busy ? "生成中…" : note ? "重新生成" : "生成学习笔记"}
       </Button>
 
-      {error && <p className="mt-3 text-danger">{error}</p>}
+      {error && <p className="mt-3 text-destructive">{error}</p>}
 
       {note && (
-        <article className="mt-4 rounded-sm bg-canvas-read p-8 text-read-body text-ink-read">
+        <article className="mt-4 rounded-sm bg-card p-8 text-read-body text-foreground">
           <Markdown>{note}</Markdown>
         </article>
       )}

@@ -118,7 +118,7 @@ export default function DocumentsPage() {
     <div className="mx-auto max-w-[1200px] px-6 py-10">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="font-mono text-caption-mono uppercase text-mute">Library</p>
+          <p className="font-mono text-caption-mono uppercase text-muted-foreground">Library</p>
           <h1 className="mt-1 text-display-sm">文档库</h1>
         </div>
         <div className="flex items-end gap-3">
@@ -134,13 +134,13 @@ export default function DocumentsPage() {
         {docs === null ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="rounded-sm border border-hairline bg-canvas-card p-6">
+              <div key={i} className="rounded-sm border border-border bg-card p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1 space-y-2">
                     <Skeleton className="h-4 w-3/4" />
                     <Skeleton className="h-3 w-1/3" />
                   </div>
-                  <Skeleton className="h-5 w-16 rounded-pill" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
                 </div>
                 <Skeleton className="mt-6 h-3 w-1/2" />
               </div>
@@ -158,7 +158,7 @@ export default function DocumentsPage() {
         ) : (
           <>
             {pollPaused && docs.some(isPending) && (
-              <p className="mb-4 text-sm text-mute">
+              <p className="mb-4 text-sm text-muted-foreground">
                 状态自动更新已暂停（部分文档处理较久）。点右上角「刷新」继续查看进度。
               </p>
             )}

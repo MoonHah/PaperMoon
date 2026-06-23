@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { FileText, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { ApiError, deleteDocument } from "@/lib/api";
 import type { DocumentResponse } from "@/lib/types";
 import { StatusPill } from "./status-pill";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/toast";
 
 function formatDate(iso: string): string {
   try {
@@ -24,7 +24,6 @@ export function DocumentCard({
   doc: DocumentResponse;
   onDeleted?: (id: string) => void;
 }) {
-  const { toast } = useToast();
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -42,10 +41,10 @@ export function DocumentCard({
     setDeleting(true);
     try {
       await deleteDocument(doc.document_id);
-      toast(`已删除 ${doc.filename}`, "success");
+      toast.success(`已删除 ${doc.filename}`);
       onDeleted?.(doc.document_id);
     } catch (err) {
-      toast(err instanceof ApiError ? err.message : "删除失败", "error");
+      toast.error(err instanceof ApiError ? err.message : "删除失败");
       setDeleting(false);
       setConfirming(false);
     }
@@ -53,7 +52,7 @@ export function DocumentCard({
 
   const deleteControl = confirming ? (
     <span className="inline-flex items-center gap-1.5">
-      <Button variant="danger" size="sm" loading={deleting} onClick={confirmDelete}>
+      <Button variant="destructive" size="sm" loading={deleting} onClick={confirmDelete}>
         删除
       </Button>
       <Button
@@ -76,7 +75,7 @@ export function DocumentCard({
         stop(e);
         setConfirming(true);
       }}
-      className="rounded-pill p-1.5 text-mute transition-colors hover:bg-canvas-soft hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-breeze"
+      className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       <Trash2 className="h-4 w-4" aria-hidden />
     </button>
@@ -86,12 +85,12 @@ export function DocumentCard({
     <>
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
-          <FileText className="mt-0.5 h-5 w-5 shrink-0 text-mute" aria-hidden />
+          <FileText className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
           <div className="min-w-0">
-            <p className="truncate text-base text-ink" title={doc.filename}>
+            <p className="truncate text-base text-foreground" title={doc.filename}>
               {doc.filename}
             </p>
-            <p className="mt-1 font-mono text-caption-mono-sm uppercase text-mute">
+            <p className="mt-1 font-mono text-caption-mono-sm uppercase text-muted-foreground">
               {doc.file_type}
               {doc.chunk_count != null ? ` · ${doc.chunk_count} chunks` : ""}
             </p>
@@ -104,12 +103,12 @@ export function DocumentCard({
       </div>
 
       {doc.status === "FAILED" && doc.error_message && (
-        <p className="mt-3 rounded-sm bg-danger-soft px-3 py-2 text-sm text-danger">
+        <p className="mt-3 rounded-sm bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {doc.error_message}
         </p>
       )}
 
-      <p className="mt-4 text-sm text-mute">{formatDate(doc.created_at)}</p>
+      <p className="mt-4 text-sm text-muted-foreground">{formatDate(doc.created_at)}</p>
     </>
   );
 
@@ -117,13 +116,13 @@ export function DocumentCard({
     return (
       <Link
         href={`/documents/${doc.document_id}`}
-        className="block rounded-sm border border-hairline bg-canvas-card p-6 transition-all hover:border-canvas-mid motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-dropdown"
+        className="block rounded-sm border border-border bg-card p-6 transition-all hover:border-border motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-lg"
       >
         {inner}
       </Link>
     );
   }
   return (
-    <div className="rounded-sm border border-hairline bg-canvas-card p-6">{inner}</div>
+    <div className="rounded-sm border border-border bg-card p-6">{inner}</div>
   );
 }

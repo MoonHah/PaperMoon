@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { Library, LogOut, MessageSquare, type LucideIcon } from "lucide-react";
 import { getMe } from "@/lib/api";
 import { clearToken, getToken } from "@/lib/auth";
-import { Button, buttonClasses } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 type NavLink = { href: string; label: string; icon: LucideIcon; disabled?: boolean };
 
@@ -33,11 +33,11 @@ export function NavBar() {
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b border-hairline bg-canvas/80 backdrop-blur">
+    <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur">
       <nav className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-3">
         <Link href="/documents" className="flex items-baseline gap-2">
           <span className="text-display-xs">PaperMoon</span>
-          <span className="hidden font-mono text-caption-mono-sm uppercase text-mute sm:inline">
+          <span className="hidden font-mono text-caption-mono-sm uppercase text-muted-foreground sm:inline">
             RAG · Agent
           </span>
         </Link>
@@ -47,7 +47,7 @@ export function NavBar() {
             {LINKS.map((l) =>
               l.disabled ? (
                 <li key={l.href}>
-                  <span className="cursor-not-allowed rounded-pill px-4 py-1.5 text-sm text-mute/60">
+                  <span className="cursor-not-allowed rounded-full px-4 py-1.5 text-sm text-muted-foreground/60">
                     {l.label}
                     <span className="ml-1.5 font-mono text-[10px] uppercase">soon</span>
                   </span>
@@ -58,10 +58,10 @@ export function NavBar() {
                     href={l.href}
                     aria-label={l.label}
                     aria-current={pathname.startsWith(l.href) ? "page" : undefined}
-                    className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-sm transition-colors sm:px-4 ${
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors sm:px-4 ${
                       pathname.startsWith(l.href)
-                        ? "bg-canvas-soft font-semibold text-ink"
-                        : "text-body hover:text-ink"
+                        ? "bg-muted font-semibold text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     <l.icon className="h-4 w-4" aria-hidden />
@@ -75,7 +75,7 @@ export function NavBar() {
           {/* 账户区：已登录显邮箱 + 退出，未登录显登录链接 */}
           {email ? (
             <div className="flex items-center gap-2">
-              <span className="hidden max-w-[160px] truncate text-sm text-mute sm:inline" title={email}>
+              <span className="hidden max-w-[160px] truncate text-sm text-muted-foreground sm:inline" title={email}>
                 {email}
               </span>
               <Button type="button" variant="outline" size="sm" onClick={logout}>
@@ -84,7 +84,7 @@ export function NavBar() {
               </Button>
             </div>
           ) : (
-            <Link href="/login" className={buttonClasses("outline", "sm")}>
+            <Link href="/login" className={buttonVariants({ variant: "outline", size: "sm" })}>
               登录
             </Link>
           )}

@@ -38,7 +38,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     <div className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-6">
       <Link href="/" className="flex items-baseline gap-2">
         <span className="text-display-xs">PaperMoon</span>
-        <span className="font-mono text-caption-mono-sm uppercase text-mute">RAG · Agent</span>
+        <span className="font-mono text-caption-mono-sm uppercase text-muted-foreground">RAG · Agent</span>
       </Link>
       <h1 className="mt-8 text-display-sm">{isLogin ? "登录" : "注册"}</h1>
 
@@ -62,19 +62,19 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           placeholder="密码（≥8 位，含字母和数字）"
         />
         {!isLogin && !error && (
-          <p className="text-sm text-mute">至少 8 位，需同时包含字母和数字。</p>
+          <p className="text-sm text-muted-foreground">至少 8 位，需同时包含字母和数字。</p>
         )}
-        {error && <p className="text-sm text-danger">{error}</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <Button type="submit" size="lg" loading={busy} className="w-full">
           {isLogin ? "登录" : "注册"}
         </Button>
       </form>
 
-      <p className="mt-4 text-sm text-mute">
+      <p className="mt-4 text-sm text-muted-foreground">
         {isLogin ? "还没有账号？" : "已有账号？"}
         <Link
           href={isLogin ? "/register" : "/login"}
-          className="ml-1 text-ink transition-colors hover:underline"
+          className="ml-1 text-foreground transition-colors hover:underline"
         >
           {isLogin ? "去注册" : "去登录"}
         </Link>

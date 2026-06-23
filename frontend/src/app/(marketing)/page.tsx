@@ -36,66 +36,66 @@ export default function LandingPage() {
     <>
       {/* Hero */}
       <section className="mx-auto max-w-[1200px] px-6 py-24 sm:py-32">
-        <p className="font-mono text-caption-mono uppercase text-mute">
+        <p className="font-mono text-caption-mono uppercase text-muted-foreground">
           RAG · AGENT · 阅读平台
         </p>
         <h1 className="mt-4 max-w-3xl text-display-md md:text-display-xl">
           把论文读薄
         </h1>
-        <p className="mt-6 max-w-xl text-lg text-body">
+        <p className="mt-6 max-w-xl text-lg text-foreground">
           上传论文与技术文档，PaperMoon 用检索增强 + 多步 Agent 帮你检索、总结、对比、做笔记，并支持多轮追问。
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/documents"
-            className="rounded-pill bg-ink px-5 py-2.5 text-sm font-medium text-canvas transition-colors hover:bg-ink/90"
+            className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             进入应用
           </Link>
           <Link
             href="/chat"
-            className="rounded-pill border border-hairline px-5 py-2.5 text-sm text-ink transition-colors hover:bg-canvas-soft"
+            className="rounded-full border border-border px-5 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
           >
             试试对话
           </Link>
         </div>
       </section>
 
-      <div className="border-t border-hairline" />
+      <div className="border-t border-border" />
 
       {/* 能力区 */}
       <section className="mx-auto max-w-[1200px] px-6 py-20">
-        <p className="font-mono text-caption-mono uppercase text-mute">能力</p>
+        <p className="font-mono text-caption-mono uppercase text-muted-foreground">能力</p>
         <h2 className="mt-2 text-display-md">不止是搜索，是读懂</h2>
         <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {CAPABILITIES.map((c) => (
             <div
               key={c.tag}
-              className="rounded-sm border border-hairline bg-canvas-card p-6"
+              className="rounded-sm border border-border bg-card p-6"
             >
-              <p className="font-mono text-caption-mono-sm uppercase text-mute">
+              <p className="font-mono text-caption-mono-sm uppercase text-muted-foreground">
                 {c.tag}
               </p>
               <h3 className="mt-2 text-display-xs">{c.title}</h3>
-              <p className="mt-2 text-base text-body">{c.desc}</p>
+              <p className="mt-2 text-base text-foreground">{c.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <div className="border-t border-hairline" />
+      <div className="border-t border-border" />
 
       {/* 工具展示 */}
       <section className="mx-auto max-w-[1200px] px-6 py-20">
-        <p className="font-mono text-caption-mono uppercase text-mute">Agent 工具</p>
+        <p className="font-mono text-caption-mono uppercase text-muted-foreground">Agent 工具</p>
         <h2 className="mt-2 text-display-md">五个工具，自主编排</h2>
-        <ul className="mt-10 divide-y divide-hairline border-y border-hairline">
+        <ul className="mt-10 divide-y divide-border border-y border-border">
           {TOOLS.map(([name, desc]) => (
             <li key={name} className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:gap-6">
-              <span className="font-mono text-sm uppercase text-ink sm:w-72">
+              <span className="font-mono text-sm uppercase text-foreground sm:w-72">
                 {name}
               </span>
-              <span className="text-base text-body">{desc}</span>
+              <span className="text-base text-foreground">{desc}</span>
             </li>
           ))}
         </ul>

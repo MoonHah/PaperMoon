@@ -2,10 +2,10 @@
 
 import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
+import { toast } from "sonner";
 import { ApiError, uploadDocument } from "@/lib/api";
 import type { DocumentUploadResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/toast";
 
 const ACCEPT = ".pdf,.md,.txt";
 
@@ -16,7 +16,6 @@ export function UploadButton({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const { toast } = useToast();
 
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -27,9 +26,9 @@ export function UploadButton({
     try {
       const doc = await uploadDocument(file);
       onUploaded(doc);
-      toast(`已上传 ${doc.filename}`, "success");
+      toast.success(`已上传 ${doc.filename}`);
     } catch (err) {
-      toast(err instanceof ApiError ? err.message : "上传失败", "error");
+      toast.error(err instanceof ApiError ? err.message : "上传失败");
     } finally {
       setBusy(false);
     }
@@ -48,7 +47,7 @@ export function UploadButton({
         {!busy && <Upload className="h-4 w-4" aria-hidden />}
         {busy ? "上传中…" : "上传文档"}
       </Button>
-      <span className="text-xs text-mute">支持 .pdf / .md / .txt</span>
+      <span className="text-xs text-muted-foreground">支持 .pdf / .md / .txt</span>
     </div>
   );
 }

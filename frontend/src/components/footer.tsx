@@ -8,18 +8,18 @@ const LINKS = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-hairline">
+    <footer className="border-t border-border">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-6 px-6 py-12 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-display-xs">PaperMoon</p>
-          <p className="mt-1 text-sm text-mute">
+          <p className="mt-1 text-sm text-muted-foreground">
             面向论文与技术文档的 RAG + Agent 阅读平台
           </p>
         </div>
-        <ul className="flex gap-6 text-sm text-body">
+        <ul className="flex gap-6 text-sm text-foreground">
           {LINKS.map((l) => (
             <li key={l.label}>
-              <Link href={l.href} className="transition-colors hover:text-ink">
+              <Link href={l.href} className="transition-colors hover:text-foreground">
                 {l.label}
               </Link>
             </li>

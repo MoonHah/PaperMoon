@@ -1,124 +1,102 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
+/* ── 设计 token：shadcn 中性灰阶（new-york）亮色，单亮色无暗色。oklch。 ──────── */
 @theme {
-  /* ── Surface（画布：品牌面 #0a0a0a vs 阅读面 #15171b）── */
-  --color-canvas: #0a0a0a;
-  --color-canvas-read: #15171b;
-  --color-canvas-soft: #1a1c20;
-  --color-canvas-card: #191919;
-  --color-canvas-mid: #363a3f;
-  --color-hairline: #212327;
+  /* Surface / Text */
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.145 0 0);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0 0);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0 0);
+  --color-primary: oklch(0.205 0 0);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-secondary: oklch(0.97 0 0);
+  --color-secondary-foreground: oklch(0.205 0 0);
+  --color-muted: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.556 0 0);
+  --color-accent: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.205 0 0);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.985 0 0);
+  --color-border: oklch(0.922 0 0);
+  --color-input: oklch(0.922 0 0);
+  --color-ring: oklch(0.708 0 0);
 
-  /* ── Text ── */
-  --color-ink: #ffffff;
-  --color-ink-read: #e6e7ea;
-  --color-body: #dadbdf;
-  --color-mute: #7d8187;
+  /* 状态语义色（中性主题无品牌色，状态用低饱和彩色区分） */
+  --color-success: oklch(0.62 0.17 145);
+  --color-warning: oklch(0.7 0.16 75);
+  --color-info: oklch(0.6 0.15 250);
 
-  /* ── Accent（解禁用于交互态：活跃 tab / Agent 标识 / 链接）── */
-  --color-accent-sunset: #ff7a17;
-  --color-accent-breeze: #a0c3ec;
-  --color-accent-dusk: #7c3aed;
+  /* Radius（shadcn --radius 0.625rem 派生） */
+  --radius-sm: calc(0.625rem - 4px);
+  --radius-md: calc(0.625rem - 2px);
+  --radius-lg: 0.625rem;
+  --radius-xl: calc(0.625rem + 4px);
 
-  /* ── Semantic（状态流水线 / 校验 / 引用高亮；每色配 -soft 深底）── */
-  --color-success: #3fb950;
-  --color-success-soft: #10251a;
-  --color-warning: #d29922;
-  --color-warning-soft: #2a2310;
-  --color-danger: #f85149;
-  --color-danger-soft: #2d1518;
-  --color-info: #58a6ff;
-  --color-info-soft: #0f2236;
-  --color-processing: #a0c3ec;
-  --color-highlight: #ff7a17;
-
-  /* ── Fonts（变量由 layout.tsx 的 next/font 注入）── */
+  /* Fonts（变量由 layout.tsx 的 next/font 注入） */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-  /* ── Radius ── */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-pill: 9999px;
-
-  /* ── Shadow（叠层景深，营销面不用）── */
-  --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.45);
-  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.6);
-
-  /* ── Typography ── */
+  /* Typography scale（沿用，结构性尺寸与颜色无关） */
   --text-display-xl: 96px;
   --text-display-xl--line-height: 96px;
   --text-display-xl--letter-spacing: -2.4px;
-  --text-display-xl--font-weight: 400;
-
   --text-display-lg: 72px;
   --text-display-lg--line-height: 72px;
   --text-display-lg--letter-spacing: -1.8px;
-  --text-display-lg--font-weight: 400;
-
   --text-display-md: 48px;
-  --text-display-md--line-height: 48px;
+  --text-display-md--line-height: 52px;
   --text-display-md--letter-spacing: -1.2px;
-  --text-display-md--font-weight: 400;
-
   --text-display-sm: 32px;
-  --text-display-sm--line-height: 36px;
+  --text-display-sm--line-height: 38px;
   --text-display-sm--letter-spacing: -0.6px;
-  --text-display-sm--font-weight: 400;
-
   --text-display-xs: 20px;
   --text-display-xs--line-height: 28px;
-  --text-display-xs--font-weight: 400;
-
   --text-read-heading: 24px;
   --text-read-heading--line-height: 32px;
   --text-read-heading--letter-spacing: -0.2px;
   --text-read-heading--font-weight: 600;
-
   --text-read-body: 17px;
   --text-read-body--line-height: 30px;
-
-  --text-caption-mono: 14px;
+  --text-caption-mono: 13px;
   --text-caption-mono--line-height: 20px;
-  --text-caption-mono--letter-spacing: 1.4px;
-
+  --text-caption-mono--letter-spacing: 1px;
   --text-caption-mono-sm: 12px;
   --text-caption-mono-sm--line-height: 16px;
-  --text-caption-mono-sm--letter-spacing: 1.2px;
+  --text-caption-mono-sm--letter-spacing: 0.8px;
 }
 
-/* Toast/淡入动画（仅 motion-safe 下启用，尊重 prefers-reduced-motion）。 */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+}
+
+/* Toast/淡入动画（仅 motion-safe，尊重 prefers-reduced-motion）。 */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* 全局默认表面：品牌画布 + 纯白字 + Geist。阅读面用 bg-canvas-read 局部覆盖。 */
-body {
-  background-color: var(--color-canvas);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-}
-
-/* ── Markdown 渲染（阅读 / 笔记 / 对话共用）──────────────────────────────
-   颜色继承父容器（阅读面 ink-read、对话面 body），仅元素结构与强调色在此定。
-   overflow-wrap:anywhere 兜住超长不可断 token（如解析残留的 /gidXXXX 串），防超框。 */
+/* ── Markdown 渲染（阅读 / 笔记 / 对话共用），映射到 shadcn token。 ──────────── */
 .md-content {
   color: inherit;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
-.md-content > :first-child {
-  margin-top: 0;
-}
-.md-content > :last-child {
-  margin-bottom: 0;
-}
+.md-content > :first-child { margin-top: 0; }
+.md-content > :last-child { margin-bottom: 0; }
 .md-content h1,
 .md-content h2,
 .md-content h3,
 .md-content h4 {
-  color: var(--color-ink);
+  color: var(--color-foreground);
   font-weight: 600;
   line-height: 1.3;
   margin: 1.6em 0 0.6em;
@@ -136,33 +114,31 @@ body {
   margin: 0.85em 0;
 }
 .md-content ul,
-.md-content ol {
-  padding-left: 1.5em;
-}
+.md-content ol { padding-left: 1.5em; }
 .md-content ul { list-style: disc; }
 .md-content ol { list-style: decimal; }
 .md-content li { margin: 0.3em 0; }
 .md-content li > ul,
 .md-content li > ol { margin: 0.3em 0; }
 .md-content a {
-  color: var(--color-accent-breeze);
+  color: var(--color-primary);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.md-content strong { font-weight: 600; color: var(--color-ink); }
+.md-content strong { font-weight: 600; color: var(--color-foreground); }
 .md-content em { font-style: italic; }
 .md-content code {
   font-family: var(--font-mono);
   font-size: 0.88em;
-  background: var(--color-canvas-soft);
-  border: 1px solid var(--color-hairline);
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 0.1em 0.35em;
 }
 .md-content pre {
-  background: var(--color-canvas-soft);
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: 1em;
   overflow-x: auto;
 }
@@ -173,16 +149,15 @@ body {
   font-size: 0.85em;
 }
 .md-content blockquote {
-  border-left: 3px solid var(--color-canvas-mid);
+  border-left: 3px solid var(--color-border);
   padding-left: 1em;
-  color: var(--color-mute);
+  color: var(--color-muted-foreground);
 }
 .md-content hr {
   border: none;
-  border-top: 1px solid var(--color-hairline);
+  border-top: 1px solid var(--color-border);
   margin: 1.6em 0;
 }
-/* 宽表格：外层可横向滚动，避免撑破阅读栏 */
 .md-content table {
   display: block;
   width: max-content;
@@ -193,15 +168,12 @@ body {
 }
 .md-content th,
 .md-content td {
-  border: 1px solid var(--color-hairline);
+  border: 1px solid var(--color-border);
   padding: 0.5em 0.75em;
   text-align: left;
 }
 .md-content th {
-  background: var(--color-canvas-soft);
+  background: var(--color-muted);
   font-weight: 600;
 }
-.md-content img {
-  max-width: 100%;
-  height: auto;
-}
+.md-content img { max-width: 100%; height: auto; }

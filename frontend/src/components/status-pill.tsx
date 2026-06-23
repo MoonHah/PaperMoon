@@ -12,9 +12,9 @@ const LABELS: Record<DocStatus, string> = {
 
 // 颜色由 semantic 决定：就绪→success，失败→danger，其余处理中→processing。
 function styleFor(status: DocStatus): string {
-  if (status === "READY") return "bg-success-soft text-success";
-  if (status === "FAILED") return "bg-danger-soft text-danger";
-  return "bg-info-soft text-processing";
+  if (status === "READY") return "bg-success/10 text-success";
+  if (status === "FAILED") return "bg-destructive/10 text-destructive";
+  return "bg-info/10 text-info";
 }
 
 export function StatusPill({ status }: { status: DocStatus }) {
@@ -22,10 +22,10 @@ export function StatusPill({ status }: { status: DocStatus }) {
 
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-pill px-3 py-0.5 font-mono text-caption-mono-sm uppercase ${styleFor(status)}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-0.5 font-mono text-caption-mono-sm uppercase ${styleFor(status)}`}
     >
       {processing && (
-        <span className="h-1.5 w-1.5 rounded-full bg-processing motion-safe:animate-pulse" />
+        <span className="h-1.5 w-1.5 rounded-full bg-info motion-safe:animate-pulse" />
       )}
       {LABELS[status] ?? status}
     </span>

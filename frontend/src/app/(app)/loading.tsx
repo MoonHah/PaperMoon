@@ -8,7 +8,7 @@ export default function Loading() {
       role="status"
       aria-label="加载中"
     >
-      <Loader2 className="h-6 w-6 animate-spin text-mute" aria-hidden />
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
     </div>
   );
 }

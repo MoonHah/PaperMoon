@@ -8,7 +8,7 @@ import { ToolSteps } from "@/components/tool-steps";
 import { CitationCards } from "@/components/citation-card";
 import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ChatTurn {
   query: string;
@@ -114,7 +114,7 @@ export default function ChatPage() {
       <div className="mx-auto max-w-[860px] px-6 pb-32">
         <header className="flex items-end justify-between gap-4 py-6">
           <div>
-            <p className="font-mono text-caption-mono uppercase text-mute">Agent</p>
+            <p className="font-mono text-caption-mono uppercase text-muted-foreground">Agent</p>
             <h1 className="mt-1 text-display-sm">对话</h1>
           </div>
           {turns.length > 0 && (
@@ -127,7 +127,7 @@ export default function ChatPage() {
 
         <div className="space-y-6">
           {turns.length === 0 ? (
-            <p className="text-mute">
+            <p className="text-muted-foreground">
               问点什么——Agent 会自动选工具、多步推理（ReAct），按需检索、总结、对比或生成笔记，并给出引用。
             </p>
           ) : (
@@ -135,23 +135,23 @@ export default function ChatPage() {
               <div key={i} className="space-y-3">
                 {/* 用户提问 */}
                 <div className="flex justify-end">
-                  <div className="max-w-[80%] whitespace-pre-wrap rounded-md border border-hairline bg-canvas-soft px-4 py-2.5 text-base">
+                  <div className="max-w-[80%] whitespace-pre-wrap rounded-md border border-border bg-muted px-4 py-2.5 text-base">
                     {t.query}
                   </div>
                 </div>
 
                 {/* Agent 回答 */}
-                <div className="border-l-2 border-accent-breeze pl-4">
+                <div className="border-l-2 border-primary pl-4">
                   {t.answer === null && !t.error ? (
-                    <p className="flex items-center gap-2 text-body">
-                      <span className="h-1.5 w-1.5 rounded-full bg-accent-breeze motion-safe:animate-pulse" />
+                    <p className="flex items-center gap-2 text-foreground">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary motion-safe:animate-pulse" />
                       思考中…
                     </p>
                   ) : t.error ? (
-                    <p className="text-danger">{t.error}</p>
+                    <p className="text-destructive">{t.error}</p>
                   ) : (
                     <>
-                      <div className="text-base text-body">
+                      <div className="text-base text-foreground">
                         <Markdown>{t.answer ?? ""}</Markdown>
                       </div>
                       <ToolSteps steps={t.steps} />
@@ -167,7 +167,7 @@ export default function ChatPage() {
       </div>
 
       {/* 输入栏：sticky 贴底，随窗口滚动常驻 */}
-      <div className="sticky bottom-0 border-t border-hairline bg-canvas/90 backdrop-blur">
+      <div className="sticky bottom-0 border-t border-border bg-background/90 backdrop-blur">
         <div className="mx-auto max-w-[860px] px-6 py-4">
           <div className="flex items-end gap-3">
             <Textarea

@@ -6,16 +6,16 @@ export function CitationCards({ citations }: { citations: CitedChunk[] }) {
 
   return (
     <div className="mt-3 space-y-2">
-      <p className="font-mono text-caption-mono-sm uppercase text-mute">
+      <p className="font-mono text-caption-mono-sm uppercase text-muted-foreground">
         引用 · {citations.length}
       </p>
       {citations.map((c, i) => (
         <div
           key={`${c.document_id}-${i}`}
-          className="rounded-sm border-l-2 border-accent-sunset bg-canvas-card p-4"
+          className="rounded-sm border-l-2 border-primary bg-card p-4"
         >
-          <p className="line-clamp-4 text-sm text-body">{c.text}</p>
-          <p className="mt-2 font-mono text-caption-mono-sm uppercase text-mute">
+          <p className="line-clamp-4 text-sm text-foreground">{c.text}</p>
+          <p className="mt-2 font-mono text-caption-mono-sm uppercase text-muted-foreground">
             {c.filename}
           </p>
         </div>

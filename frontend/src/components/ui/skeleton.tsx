@@ -1,11 +1,14 @@
 import { cn } from "@/lib/cn";
 
-// 骨架占位：加载态用，比"加载中…"裸字更显精致。motion-safe 尊重 reduced-motion。
-export function Skeleton({ className }: { className?: string }) {
+// 骨架占位（shadcn 版）。motion-safe 尊重 prefers-reduced-motion。
+function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      aria-hidden
-      className={cn("rounded-sm bg-canvas-soft motion-safe:animate-pulse", className)}
+      data-slot="skeleton"
+      className={cn("rounded-md bg-muted motion-safe:animate-pulse", className)}
+      {...props}
     />
   );
 }
+
+export { Skeleton };

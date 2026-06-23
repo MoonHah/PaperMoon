@@ -1,4 +1,7 @@
-// 极简 class 合并：过滤假值后拼接。避免为此引入 clsx 依赖。
-export function cn(...classes: Array<string | false | null | undefined>): string {
-  return classes.filter(Boolean).join(" ");
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+// shadcn 标准 cn：clsx 条件拼接 + tailwind-merge 处理同类冲突（后者覆盖前者）。
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
 }

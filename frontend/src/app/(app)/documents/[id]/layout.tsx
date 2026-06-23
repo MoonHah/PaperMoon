@@ -39,7 +39,7 @@ export default function DocumentWorkspaceLayout({
     <div className="mx-auto max-w-[760px] px-6 py-8">
       <Link
         href="/documents"
-        className="inline-flex items-center gap-1 text-sm text-mute transition-colors hover:text-ink"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
         文档库
@@ -52,7 +52,7 @@ export default function DocumentWorkspaceLayout({
         </h1>
       )}
 
-      <nav className="mt-4 flex gap-1 border-b border-hairline">
+      <nav className="mt-4 flex gap-1 border-b border-border">
         {tabs.map((t) => {
           const active = pathname === t.href;
           const Icon = t.icon;
@@ -63,8 +63,8 @@ export default function DocumentWorkspaceLayout({
               aria-current={active ? "page" : undefined}
               className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm transition-colors ${
                 active
-                  ? "border-accent-breeze font-semibold text-ink"
-                  : "border-transparent text-mute hover:text-ink"
+                  ? "border-primary font-semibold text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <Icon className="h-4 w-4" aria-hidden />
