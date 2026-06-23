@@ -1,16 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+// 自托管字体：geist 包把 Geist/Geist Mono 的 woff2 打包在本地（next/font/local 机制），
+// 不再从 fonts.gstatic.com 下载——国内/离线/无 VPN 均可，避开 next/font/google 拉取失败。
+// 其 .variable 默认就是 --font-geist-sans / --font-geist-mono，与 globals.css 一致。
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   // 子路由设 title 时自动拼成「对话 · PaperMoon」；无则用 default。
@@ -27,7 +21,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
         {children}
