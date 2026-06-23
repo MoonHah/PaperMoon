@@ -7,6 +7,7 @@ from app.api.v1 import (
     chat,
     agent,
     auth,
+    conversations,
 )
 
 v1_router = APIRouter()     # v1 的父router
@@ -35,4 +36,9 @@ v1_router.include_router(
 v1_router.include_router(
     agent.router,
     tags=["agent"],
+)
+
+v1_router.include_router(
+    conversations.router,
+    tags=["conversations"],
 )
