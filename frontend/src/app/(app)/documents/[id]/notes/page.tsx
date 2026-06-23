@@ -19,6 +19,7 @@ export default function NotesTab() {
   const [status, setStatus] = useState<NotesStatus | null>(null);
   const [notes, setNotes] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pollTimedOut, setPollTimedOut] = useState(false); // PENDING 轮询超时 → 允许重试
   const ticksRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -39,6 +40,7 @@ export default function NotesTab() {
       ticksRef.current += 1;
       if (ticksRef.current > MAX_TICKS) {
         clearInterval(timer);
+        setPollTimedOut(true); // 超时仍 PENDING：放出重试入口，避免永久卡死（如 worker 中途挂）
         return;
       }
       try {
@@ -53,6 +55,7 @@ export default function NotesTab() {
   async function generate() {
     setError(null);
     ticksRef.current = 0;
+    setPollTimedOut(false);
     try {
       const r = await requestDocumentNotes(id);
       setStatus(r.status); // PENDING
@@ -64,9 +67,11 @@ export default function NotesTab() {
 
   if (status === null && !error) return <Skeleton className="h-40 w-full rounded-sm" />;
 
-  const showButton = status === "NOT_GENERATED" || status === "READY" || status === "FAILED";
+  const pendingStuck = status === "PENDING" && pollTimedOut;
+  const showButton =
+    status === "NOT_GENERATED" || status === "READY" || status === "FAILED" || pendingStuck;
   const buttonLabel =
-    status === "READY" ? "重新生成" : status === "FAILED" ? "重试" : "生成学习笔记";
+    status === "READY" ? "重新生成" : status === "NOT_GENERATED" ? "生成学习笔记" : "重试";
 
   return (
     <div>
@@ -77,11 +82,15 @@ export default function NotesTab() {
         </Button>
       )}
 
-      {status === "PENDING" && (
+      {status === "PENDING" && !pollTimedOut && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="h-1.5 w-1.5 rounded-full bg-info motion-safe:animate-pulse" />
           正在生成笔记…（模型较慢时可能需要一两分钟，可离开本页，稍后回来查看）
         </p>
+      )}
+
+      {pendingStuck && (
+        <p className="mt-3 text-sm text-muted-foreground">生成耗时过长或被中断，可点上方「重试」。</p>
       )}
 
       {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
