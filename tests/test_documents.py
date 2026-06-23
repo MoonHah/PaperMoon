@@ -198,6 +198,32 @@ def test_generate_notes_on_not_ready_doc_returns_409(client: TestClient):
     assert client.post(f"/api/v1/documents/{doc_id}/notes").status_code == 409
 
 
+# ── 原件 / 分块 ───────────────────────────────────────────────────────────────
+
+def test_get_document_file_returns_original_bytes(client: TestClient):
+    doc_id = client.post(
+        "/api/v1/documents/upload", files=[_txt_file(content="Hello world.")]
+    ).json()["document_id"]
+    resp = client.get(f"/api/v1/documents/{doc_id}/file")
+    assert resp.status_code == 200
+    assert resp.content == b"Hello world."
+
+
+def test_get_document_file_not_owner_returns_404(anon_client: TestClient):
+    a = _auth_headers(anon_client, "a@file.com")
+    b = _auth_headers(anon_client, "b@file.com")
+    doc_id = anon_client.post(
+        "/api/v1/documents/upload", files=[_txt_file(content="A's", name="a.txt")], headers=a
+    ).json()["document_id"]
+    assert anon_client.get(f"/api/v1/documents/{doc_id}/file", headers=b).status_code == 404
+
+
+def test_get_chunks_not_ready_returns_409(client: TestClient):
+    # 上传后 UPLOADED（worker mock 不处理）→ 分块需 READY 正文 → 409
+    doc_id = client.post("/api/v1/documents/upload", files=[_txt_file()]).json()["document_id"]
+    assert client.get(f"/api/v1/documents/{doc_id}/chunks").status_code == 409
+
+
 def test_generate_notes_returns_503_on_internal_failure(client: TestClient, monkeypatch):
     # LLM 等内部失败 → 兜成友好 503，而非裸 500
     doc_id = client.post("/api/v1/documents/upload", files=[_txt_file()]).json()["document_id"]

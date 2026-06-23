@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.errors import AppError
 from app.models.document import Document, DocumentStatus
 from app.repositories import document_repository
+from app.services.chunking_service import chunk_text
 from app.services.document_parser import parse_document
 from app.services.llm_service import get_llm_service
 from app.services.vector_store import get_vector_store
@@ -171,6 +172,18 @@ def _truncate_for_notes(content: str) -> str:
         logger.info("notes 正文截断 %d→%d 字符 (notes_max_chars)", len(content), limit)
         return content[:limit]
     return content
+
+
+def get_chunks(session: Session, user_id: str, document_id: str) -> tuple[str, list[str]]:
+    """返回 (filename, 分块列表)，供分块检查页使用。
+
+    用与 worker 完全相同的 chunk_text + 同一份解析正文确定性重切——
+    即「实际入库的切分」，无需查 Qdrant（向量层只存向量，不便回读原文）。
+    归属/READY 校验复用 get_content（非属主 404 / 未就绪 409）。
+    """
+    filename, content = get_content(session, user_id, document_id)
+    chunks = chunk_text(content, chunk_size=settings.chunk_size, overlap=settings.chunk_overlap)
+    return filename, chunks
 
 
 def generate_notes(session: Session, user_id: str, document_id: str) -> tuple[str, str]:

@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,8 @@ from app.models.document import Document
 from app.models.user import User
 from app.repositories import document_repository
 from app.schemas.document import (
+    DocumentChunk,
+    DocumentChunksResponse,
     DocumentContentResponse,
     DocumentNotesResponse,
     DocumentResponse,
@@ -61,6 +64,42 @@ def get_document_content(
     filename, content = document_service.get_content(session, user.id, document_id)
     return DocumentContentResponse(
         document_id=document_id, filename=filename, content=content
+    )
+
+
+@router.get("/{document_id}/file")
+def get_document_file(doc: Document = Depends(get_owned_document)):
+    """返回上传的原件本体（阅读页内嵌渲染原始 PDF 等）。归属校验交依赖。
+
+    前端 <iframe src> 带不了 Bearer，故前端会鉴权 fetch 成 blob 再内嵌——
+    本端点只需给对字节 + media_type，Content-Disposition 不影响 blob 渲染。
+    """
+    path = Path(settings.storage_path) / f"{doc.document_id}{doc.file_type}"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Original file not found.")
+    media = {
+        ".pdf": "application/pdf",
+        ".md": "text/markdown",
+        ".txt": "text/plain",
+    }.get(doc.file_type, "application/octet-stream")
+    return FileResponse(path, media_type=media)
+
+
+@router.get("/{document_id}/chunks", response_model=DocumentChunksResponse)
+def get_document_chunks(
+    document_id: str,
+    session: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # 分块检查：返回与 worker 同款规则确定性重切的分块（归属 + READY 校验在 service）。
+    filename, chunks = document_service.get_chunks(session, user.id, document_id)
+    return DocumentChunksResponse(
+        document_id=document_id,
+        filename=filename,
+        chunk_count=len(chunks),
+        chunks=[
+            DocumentChunk(index=i, text=c, char_count=len(c)) for i, c in enumerate(chunks)
+        ],
     )
 
 
