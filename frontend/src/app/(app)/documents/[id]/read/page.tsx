@@ -32,7 +32,12 @@ export default function ReadTab() {
           // <iframe src> 带不了 Bearer → 鉴权 fetch 成 blob 再生成 object URL 内嵌。
           const blob = await fetchDocumentFile(id);
           if (cancelled) return;
-          objectUrl = URL.createObjectURL(blob);
+          // 强制 MIME 为 application/pdf：防代理未透传 Content-Type 时浏览器当未知类型下载。
+          const pdfBlob =
+            blob.type === "application/pdf"
+              ? blob
+              : new Blob([blob], { type: "application/pdf" });
+          objectUrl = URL.createObjectURL(pdfBlob);
           setPdfUrl(objectUrl);
         } else {
           const r = await getDocumentContent(id);
@@ -55,12 +60,21 @@ export default function ReadTab() {
 
   if (fileType === ".pdf") {
     if (!pdfUrl) return <Skeleton className="h-[70vh] w-full rounded-sm" />;
+    // <object type="application/pdf"> 显式声明类型，比 <iframe> 更稳地内联渲染 blob PDF；
+    // 内部子节点为兜底（浏览器无法内嵌时显示下载链接）。
     return (
-      <iframe
-        src={pdfUrl}
-        title="原件"
+      <object
+        data={pdfUrl}
+        type="application/pdf"
         className="h-[calc(100vh-220px)] min-h-[600px] w-full rounded-sm border border-border bg-card"
-      />
+      >
+        <div className="p-8 text-center text-sm text-muted-foreground">
+          浏览器无法内嵌显示此 PDF。
+          <a href={pdfUrl} download className="ml-1 text-primary underline">
+            下载查看
+          </a>
+        </div>
+      </object>
     );
   }
 
