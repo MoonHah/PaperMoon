@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -139,6 +139,7 @@ def delete_document(
 
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     session: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -154,10 +155,23 @@ async def upload_document(
             detail=f"Unsupported file type '{suffix}'. Allowed: .txt, .md, .pdf",
         )
 
-    content_bytes = await file.read()
+    max_bytes = settings.max_file_size_mb * 1024 * 1024
+    too_large = HTTPException(
+        status_code=413, detail=f"File exceeds {settings.max_file_size_mb} MB limit."
+    )
 
-    if len(content_bytes) > settings.max_file_size_mb * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="File exceeds 10 MB limit.")
+    # ① Content-Length 预检：诚实客户端可在读 body 前就快速拒绝超大文件（省内存/带宽）。
+    declared = request.headers.get("content-length")
+    if declared is not None and declared.isdigit() and int(declared) > max_bytes:
+        raise too_large
+
+    # ② 流式读 + 上限兜底：Content-Length 可能缺失/伪造，故边读边累计、超限即中止，
+    #    内存封顶在 ~max_bytes，不会把超大文件整体读入再判断。
+    content_bytes = b""
+    while chunk := await file.read(1024 * 1024):  # 1 MB/次
+        content_bytes += chunk
+        if len(content_bytes) > max_bytes:
+            raise too_large
 
     if suffix != ".pdf":
         try:
