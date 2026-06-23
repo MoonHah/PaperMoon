@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, Inbox, RefreshCw } from "lucide-react";
+import { AlertCircle, Inbox } from "lucide-react";
 import { ApiError, getDocumentStatus, listDocuments } from "@/lib/api";
 import {
   TERMINAL_STATUSES,
@@ -12,7 +12,6 @@ import { UploadButton } from "@/components/upload-button";
 import { DocumentCard } from "@/components/document-card";
 import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 
 const POLL_INTERVAL_MS = 2500;
 // 上限 ≈ 6 分钟：需覆盖大 PDF 的 OCR 解析（可达数分钟），否则会在解析途中误判为卡住。
@@ -87,13 +86,6 @@ export default function DocumentsPage() {
     setDocs((prev) => (prev ? prev.filter((d) => d.document_id !== id) : prev));
   }
 
-  // 手动刷新：重置轮询计数/暂停态并重新拉取（暂停后续查、或随时主动刷新）。
-  function refresh() {
-    pollTicksRef.current = 0;
-    setPollPaused(false);
-    load();
-  }
-
   function handleUploaded(doc: DocumentUploadResponse) {
     // 新上传：重置轮询计数与暂停态，让新文档能被轮询到终态。
     pollTicksRef.current = 0;
@@ -121,13 +113,7 @@ export default function DocumentsPage() {
           <p className="font-mono text-caption-mono uppercase text-muted-foreground">Library</p>
           <h1 className="mt-1 text-display-sm">文档库</h1>
         </div>
-        <div className="flex items-end gap-3">
-          <Button variant="outline" size="sm" onClick={refresh}>
-            <RefreshCw className="h-4 w-4" aria-hidden />
-            刷新
-          </Button>
-          <UploadButton onUploaded={handleUploaded} />
-        </div>
+        <UploadButton onUploaded={handleUploaded} />
       </div>
 
       <div className="mt-8">
@@ -159,7 +145,7 @@ export default function DocumentsPage() {
           <>
             {pollPaused && docs.some(isPending) && (
               <p className="mb-4 text-sm text-muted-foreground">
-                状态自动更新已暂停（部分文档处理较久）。点右上角「刷新」继续查看进度。
+                状态自动更新已暂停（部分文档处理较久）。刷新页面可继续查看进度。
               </p>
             )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

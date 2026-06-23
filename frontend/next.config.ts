@@ -5,6 +5,10 @@ import type { NextConfig } from "next";
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8008";
 
 const nextConfig: NextConfig = {
+  // 关闭左下角 Next dev 指示器（Route/Bundler 浮层）：dev 专属、生产本就不存在，
+  // 对用户无意义。编译/运行时错误仍会照常浮出。
+  devIndicators: false,
+
   async rewrites() {
     return [
       // 列表接口后端是带尾斜杠的 /documents/。catch-all :path* 会吃掉尾斜杠，
