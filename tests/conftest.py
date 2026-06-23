@@ -122,13 +122,14 @@ def _db_tables() -> Generator[None, None, None]:
 
 @pytest.fixture(autouse=True)
 def _mock_celery(monkeypatch) -> None:
-    """Prevent process_document.delay() from connecting to a real Celery broker."""
+    """Prevent *.delay() from connecting to a real Celery broker."""
     import app.workers.document_tasks as _tasks
 
     class _FakeTask:
         id = "fake-celery-task-id"
 
     monkeypatch.setattr(_tasks.process_document, "delay", lambda _doc_id: _FakeTask())
+    monkeypatch.setattr(_tasks.generate_notes, "delay", lambda *a, **k: _FakeTask())
 
 
 # ── Named fixtures (requested explicitly by tests) ───────────────────────────

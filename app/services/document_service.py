@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 from pathlib import Path
 from uuid import uuid4
@@ -190,14 +191,78 @@ def get_chunks(session: Session, user_id: str, document_id: str) -> tuple[str, l
     return filename, chunks
 
 
-def generate_notes(session: Session, user_id: str, document_id: str) -> tuple[str, str]:
-    """为单篇文档生成 Markdown 学习笔记，返回 (filename, notes)。
+# ── 笔记异步生成（OpenAI 国内慢，单次可达 86-150s → 不能同步长握 HTTP）─────────
+# 状态机用文件持久化（免 DB 迁移，与 content.md 落盘一致）：
+#   {id}.notes.json = {"status": NOT_GENERATED|PENDING|READY|FAILED, "error": ...}
+#   {id}.notes.md   = READY 时的笔记正文
+NOTES_NOT_GENERATED = "NOT_GENERATED"
+NOTES_PENDING = "PENDING"
+NOTES_READY = "READY"
+NOTES_FAILED = "FAILED"
 
-    确定性操作：按 document_id 精确锁定、喂正文给 LLM（区别于 Agent 通用对话——
-    后者忽略 document_ids，且 generate_markdown_notes 工具只按 query 全库检索）。
-    正文按 notes_max_chars 截断，保证单次调用快而稳（见 _truncate_for_notes）。
-    """
-    filename, content = get_content(session, user_id, document_id)
-    llm = get_llm_service(settings)
-    notes = llm.chat(_NOTES_PROMPT, context_chunks=[_truncate_for_notes(content)])
-    return filename, notes
+
+def _notes_status_file(document_id: str) -> Path:
+    return Path(settings.storage_path) / f"{document_id}.notes.json"
+
+
+def _notes_md_file(document_id: str) -> Path:
+    return Path(settings.storage_path) / f"{document_id}.notes.md"
+
+
+def _write_notes_status(document_id: str, status: str, error: str | None = None) -> None:
+    _notes_status_file(document_id).write_text(
+        json.dumps({"status": status, "error": error}, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def request_notes(session: Session, user_id: str, document_id: str) -> str:
+    """校验归属 + READY，写 PENDING 状态并投递异步任务。返回 filename。"""
+    doc = document_repository.get_owned(session, user_id, document_id)
+    if doc is None:
+        raise AppError(error_code="NOT_FOUND", message="Document not found.", status_code=404)
+    if doc.status != DocumentStatus.READY.value:
+        raise AppError(
+            error_code="DOCUMENT_NOT_READY", message="Document is not ready yet.", status_code=409
+        )
+    _write_notes_status(document_id, NOTES_PENDING)
+    document_tasks.generate_notes.delay(document_id, user_id)  # type: ignore[attr-defined]
+    return doc.filename
+
+
+def read_notes(
+    session: Session, user_id: str, document_id: str
+) -> tuple[str, str, str | None, str | None]:
+    """返回 (filename, status, notes|None, error|None)。归属校验（非属主 404）。"""
+    doc = document_repository.get_owned(session, user_id, document_id)
+    if doc is None:
+        raise AppError(error_code="NOT_FOUND", message="Document not found.", status_code=404)
+
+    status_file = _notes_status_file(document_id)
+    if not status_file.exists():
+        return doc.filename, NOTES_NOT_GENERATED, None, None
+    try:
+        data = json.loads(status_file.read_text(encoding="utf-8"))
+    except Exception:
+        return doc.filename, NOTES_NOT_GENERATED, None, None
+
+    status = data.get("status", NOTES_NOT_GENERATED)
+    if status == NOTES_READY:
+        md = _notes_md_file(document_id)
+        if md.exists():
+            return doc.filename, NOTES_READY, md.read_text(encoding="utf-8"), None
+        return doc.filename, NOTES_NOT_GENERATED, None, None  # 状态 READY 但文件丢了
+    return doc.filename, status, None, data.get("error")
+
+
+def run_notes_generation(session: Session, user_id: str, document_id: str) -> None:
+    """Celery 任务体：生成笔记落盘 + 写状态。任何异常 → FAILED（不抛出，任务正常结束）。"""
+    try:
+        _, content = get_content(session, user_id, document_id)
+        notes = get_llm_service(settings).chat(
+            _NOTES_PROMPT, context_chunks=[_truncate_for_notes(content)]
+        )
+        _notes_md_file(document_id).write_text(notes, encoding="utf-8")
+        _write_notes_status(document_id, NOTES_READY)
+    except Exception as e:
+        logger.error("notes generation failed [%s] for %s: %s", type(e).__name__, document_id, e)
+        _write_notes_status(document_id, NOTES_FAILED, error="笔记生成失败，请稍后重试。")

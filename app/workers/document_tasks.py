@@ -130,3 +130,19 @@ def process_document(self, document_id: str) -> dict:
 
     finally:
         db.close()
+
+
+@celery_app.task(name="document_tasks.generate_notes")
+def generate_notes(document_id: str, user_id: str) -> dict:
+    """异步生成学习笔记（OpenAI 国内慢，单次可达 1-2 分钟，不宜同步长握 HTTP）。
+    错误由 service 落成 FAILED 状态，故任务本身正常结束、不重试。"""
+    # 延迟导入：document_service 在模块级 import 本模块，顶层 import 会造成循环引用。
+    from app.services import document_service
+
+    set_request_id(uuid.uuid4().hex[:8])
+    db = SessionLocal()
+    try:
+        document_service.run_notes_generation(db, user_id, document_id)
+        return {"document_id": document_id}
+    finally:
+        db.close()

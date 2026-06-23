@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.errors import AppError
 from app.core.security import get_current_user
 from app.models.document import Document
 from app.models.user import User
@@ -103,23 +102,27 @@ def get_document_chunks(
     )
 
 
-@router.post("/{document_id}/notes", response_model=DocumentNotesResponse)
-def generate_document_notes(
+@router.post("/{document_id}/notes", status_code=202, response_model=DocumentNotesResponse)
+def request_document_notes(
     document_id: str,
     session: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # 确定性地为单篇文档生成笔记（按 document_id 锁定，喂截断后的正文）——不走 Agent，避免指代歧义。
-    try:
-        filename, notes = document_service.generate_notes(session, user.id, document_id)
-    except AppError:
-        raise  # 业务错误（404 未找到 / 409 未就绪 / 内容缺失）交全局处理器渲染
-    except Exception as e:
-        # LLM 超时/失败等：兜成友好 503，避免裸 500（Internal Server Error）
-        logger.error("notes generation failed [%s]: %s", type(e).__name__, e)
-        raise HTTPException(status_code=503, detail="笔记生成暂时失败，请稍后重试。")
+    # 异步生成（OpenAI 国内慢，不宜同步长握 HTTP）：校验后投递任务，立即返回 PENDING；
+    # 前端轮询 GET /notes 取结果。业务错误（404/409）由 service 抛 AppError、全局处理器渲染。
+    filename = document_service.request_notes(session, user.id, document_id)
+    return DocumentNotesResponse(document_id=document_id, filename=filename, status="PENDING")
+
+
+@router.get("/{document_id}/notes", response_model=DocumentNotesResponse)
+def get_document_notes(
+    document_id: str,
+    session: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    filename, status, notes, error = document_service.read_notes(session, user.id, document_id)
     return DocumentNotesResponse(
-        document_id=document_id, filename=filename, notes=notes
+        document_id=document_id, filename=filename, status=status, notes=notes, error=error
     )
 
 

@@ -224,13 +224,43 @@ def test_get_chunks_not_ready_returns_409(client: TestClient):
     assert client.get(f"/api/v1/documents/{doc_id}/chunks").status_code == 409
 
 
-def test_generate_notes_returns_503_on_internal_failure(client: TestClient, monkeypatch):
-    # LLM 等内部失败 → 兜成友好 503，而非裸 500
+def test_get_notes_status_not_generated(client: TestClient):
+    # 未生成过 → GET /notes 返回 NOT_GENERATED（GET 不要求 READY）
     doc_id = client.post("/api/v1/documents/upload", files=[_txt_file()]).json()["document_id"]
+    r = client.get(f"/api/v1/documents/{doc_id}/notes")
+    assert r.status_code == 200
+    assert r.json()["status"] == "NOT_GENERATED"
+
+
+def test_run_notes_generation_writes_ready(db_session, tmp_storage):
+    # 任务体：READY 文档 + content.md → 生成笔记落盘 + 状态 READY
+    from app.models.document import DocumentStatus
+    from app.repositories import document_repository
     from app.services import document_service
 
-    def boom(*a, **k):
-        raise RuntimeError("llm down")
+    document_repository.create(db_session, document_id="n1", user_id="u1", filename="x.pdf", file_type=".pdf")
+    document_repository.update_status(db_session, "n1", DocumentStatus.READY, chunk_count=1)
+    db_session.commit()
+    (tmp_storage / "n1.content.md").write_text("文档正文内容", encoding="utf-8")
 
-    monkeypatch.setattr(document_service, "generate_notes", boom)
-    assert client.post(f"/api/v1/documents/{doc_id}/notes").status_code == 503
+    document_service.run_notes_generation(db_session, "u1", "n1")
+    _, status, notes, err = document_service.read_notes(db_session, "u1", "n1")
+    assert status == "READY"
+    assert notes  # mock LLM 返回了笔记
+    assert err is None
+
+
+def test_run_notes_generation_failure_writes_failed(db_session, tmp_storage):
+    # content.md 缺失 → get_content 抛错 → 任务体落 FAILED（不抛出）
+    from app.models.document import DocumentStatus
+    from app.repositories import document_repository
+    from app.services import document_service
+
+    document_repository.create(db_session, document_id="n2", user_id="u1", filename="y.pdf", file_type=".pdf")
+    document_repository.update_status(db_session, "n2", DocumentStatus.READY, chunk_count=1)
+    db_session.commit()
+
+    document_service.run_notes_generation(db_session, "u1", "n2")
+    _, status, _, err = document_service.read_notes(db_session, "u1", "n2")
+    assert status == "FAILED"
+    assert err

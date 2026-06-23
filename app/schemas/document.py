@@ -24,7 +24,9 @@ class DocumentContentResponse(BaseModel):
 class DocumentNotesResponse(BaseModel):
     document_id: str = Field(...)
     filename: str = Field(...)
-    notes: str = Field(description="基于该文档全文生成的 Markdown 学习笔记")
+    status: str = Field(description="NOT_GENERATED | PENDING | READY | FAILED")
+    notes: str | None = Field(default=None, description="READY 时为 Markdown 学习笔记")
+    error: str | None = Field(default=None, description="FAILED 时的错误提示")
 
 class DocumentChunk(BaseModel):
     index: int = Field(description="分块序号（0 起）")
