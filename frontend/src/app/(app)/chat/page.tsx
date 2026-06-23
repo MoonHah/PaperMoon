@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, SquarePen } from "lucide-react";
+import { MessageSquare, Send, SquarePen } from "lucide-react";
 import { ApiError, runAgent } from "@/lib/api";
 import type { CitedChunk, IntermediateStep } from "@/lib/types";
 import { ToolSteps } from "@/components/tool-steps";
@@ -127,9 +127,13 @@ export default function ChatPage() {
 
         <div className="space-y-6">
           {turns.length === 0 ? (
-            <p className="text-muted-foreground">
-              问点什么——Agent 会自动选工具、多步推理（ReAct），按需检索、总结、对比或生成笔记，并给出引用。
-            </p>
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <MessageSquare className="h-8 w-8 text-muted-foreground" aria-hidden />
+              <p className="text-base text-foreground">问点什么开始对话</p>
+              <p className="max-w-md text-sm text-muted-foreground">
+                Agent 会自动选工具、多步推理（ReAct），按需检索、总结、对比或生成笔记，并给出引用。
+              </p>
+            </div>
           ) : (
             turns.map((t, i) => (
               <div key={i} className="space-y-3">
