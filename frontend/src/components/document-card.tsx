@@ -116,7 +116,7 @@ export function DocumentCard({
     return (
       <Link
         href={`/documents/${doc.document_id}`}
-        className="block rounded-sm border border-border bg-card p-6 transition-all hover:border-border motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-lg"
+        className="block rounded-sm border border-border bg-card p-6 transition-all hover:border-foreground/20 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-lg"
       >
         {inner}
       </Link>

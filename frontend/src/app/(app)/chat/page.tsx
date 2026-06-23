@@ -129,10 +129,7 @@ export default function ChatPage() {
           {turns.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
               <MessageSquare className="h-8 w-8 text-muted-foreground" aria-hidden />
-              <p className="text-base text-foreground">问点什么开始对话</p>
-              <p className="max-w-md text-sm text-muted-foreground">
-                Agent 会自动选工具、多步推理（ReAct），按需检索、总结、对比或生成笔记，并给出引用。
-              </p>
+              <p className="text-base text-foreground">让我们开始对话吧！</p>
             </div>
           ) : (
             turns.map((t, i) => (
