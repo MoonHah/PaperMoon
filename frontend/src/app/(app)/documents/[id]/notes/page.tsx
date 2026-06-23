@@ -1,56 +1,94 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Sparkles } from "lucide-react";
-import { ApiError, generateDocumentNotes } from "@/lib/api";
+import { ApiError, getDocumentNotes, requestDocumentNotes } from "@/lib/api";
+import type { NotesStatus } from "@/lib/types";
 import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
-// 笔记 tab：调专用接口按 document_id 精确生成（不走 Agent，避免指代歧义）。
-// 生成结果按 docId 存入 sessionStorage：切到「阅读」再切回来不丢、刷新也在
-// （后端暂不落盘以避开重建镜像；服务端持久化留到攻核心解析时一并做）。
+// 笔记异步生成：进页 GET 状态；点生成→POST→轮询 GET 到 READY/FAILED。
+// 结果服务端持久化（{id}.notes.md），切页/刷新/换设备都在；PENDING 可离开稍后回来。
+const POLL_MS = 3000;
+const MAX_TICKS = 80; // ~4 分钟，覆盖 OpenAI 国内慢（单次可达 1-2 分钟）
+
 export default function NotesTab() {
   const { id } = useParams<{ id: string }>();
-  const storageKey = `papermoon:notes:${id}`;
-  const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<NotesStatus | null>(null);
+  const [notes, setNotes] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const ticksRef = useRef(0);
 
-  // 挂载后从 sessionStorage 恢复（放 effect 里避免 SSR 水合不一致）。
+  const load = useCallback(async () => {
+    const r = await getDocumentNotes(id);
+    setStatus(r.status);
+    setNotes(r.notes);
+    setError(r.error);
+  }, [id]);
+
   useEffect(() => {
-    const cached = sessionStorage.getItem(storageKey);
-    if (cached) setNote(cached);
-    else setNote(null);
-  }, [storageKey]);
+    load().catch((e) => setError(e instanceof ApiError ? e.message : "加载失败"));
+  }, [load]);
+
+  // PENDING 时轮询，直到 READY/FAILED 或超时（后端 15 分钟兜底，前端 ~4 分钟停轮询）。
+  useEffect(() => {
+    if (status !== "PENDING") return;
+    const timer = setInterval(async () => {
+      ticksRef.current += 1;
+      if (ticksRef.current > MAX_TICKS) {
+        clearInterval(timer);
+        return;
+      }
+      try {
+        await load();
+      } catch {
+        /* 单次轮询失败忽略，下次再试 */
+      }
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [status, load]);
 
   async function generate() {
-    if (busy) return;
-    setBusy(true);
     setError(null);
+    ticksRef.current = 0;
     try {
-      const res = await generateDocumentNotes(id);
-      setNote(res.notes);
-      sessionStorage.setItem(storageKey, res.notes);
+      const r = await requestDocumentNotes(id);
+      setStatus(r.status); // PENDING
+      setNotes(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "生成失败");
-    } finally {
-      setBusy(false);
     }
   }
 
+  if (status === null && !error) return <Skeleton className="h-40 w-full rounded-sm" />;
+
+  const showButton = status === "NOT_GENERATED" || status === "READY" || status === "FAILED";
+  const buttonLabel =
+    status === "READY" ? "重新生成" : status === "FAILED" ? "重试" : "生成学习笔记";
+
   return (
     <div>
-      <Button type="button" onClick={generate} loading={busy}>
-        {!busy && <Sparkles className="h-4 w-4" aria-hidden />}
-        {busy ? "生成中…" : note ? "重新生成" : "生成学习笔记"}
-      </Button>
+      {showButton && (
+        <Button type="button" onClick={generate}>
+          <Sparkles className="h-4 w-4" aria-hidden />
+          {buttonLabel}
+        </Button>
+      )}
 
-      {error && <p className="mt-3 text-destructive">{error}</p>}
+      {status === "PENDING" && (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-info motion-safe:animate-pulse" />
+          正在生成笔记…（模型较慢时可能需要一两分钟，可离开本页，稍后回来查看）
+        </p>
+      )}
 
-      {note && (
+      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+
+      {status === "READY" && notes && (
         <article className="mt-4 rounded-sm bg-card p-8 text-read-body text-foreground">
-          <Markdown>{note}</Markdown>
+          <Markdown>{notes}</Markdown>
         </article>
       )}
     </div>

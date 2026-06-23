@@ -133,13 +133,13 @@ export async function fetchDocumentFile(id: string): Promise<Blob> {
   return res.blob();
 }
 
-export function generateDocumentNotes(id: string): Promise<DocumentNotesResponse> {
-  // 确定性按文档生成笔记（不走 Agent）；含 LLM 调用，给更长超时。
-  return request<DocumentNotesResponse>(
-    `/api/v1/documents/${id}/notes`,
-    { method: "POST" },
-    AGENT_TIMEOUT_MS,
-  );
+// 笔记异步化：GET 取状态/结果；POST 触发后台生成并立即返回 PENDING。前端轮询 GET。
+export function getDocumentNotes(id: string): Promise<DocumentNotesResponse> {
+  return request<DocumentNotesResponse>(`/api/v1/documents/${id}/notes`);
+}
+
+export function requestDocumentNotes(id: string): Promise<DocumentNotesResponse> {
+  return request<DocumentNotesResponse>(`/api/v1/documents/${id}/notes`, { method: "POST" });
 }
 
 export function uploadDocument(file: File): Promise<DocumentUploadResponse> {

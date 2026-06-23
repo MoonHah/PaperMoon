@@ -41,10 +41,14 @@ export interface DocumentContentResponse {
   content: string;
 }
 
+export type NotesStatus = "NOT_GENERATED" | "PENDING" | "READY" | "FAILED";
+
 export interface DocumentNotesResponse {
   document_id: string;
   filename: string;
-  notes: string;
+  status: NotesStatus;
+  notes: string | null;
+  error: string | null;
 }
 
 export interface DocumentChunk {
