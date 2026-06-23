@@ -35,9 +35,12 @@
   --radius-lg: 0.625rem;
   --radius-xl: calc(0.625rem + 4px);
 
-  /* Fonts（变量由 layout.tsx 的 next/font 注入） */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* Fonts（变量由 layout.tsx 的 geist 包注入）。末尾追加 emoji/符号字体作回退：
+     内容含箭头/符号/emoji 时不至于渲染成 □（tofu）。 */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace,
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
 
   /* Typography scale（沿用，结构性尺寸与颜色无关） */
   --text-display-xl: 96px;
