@@ -108,3 +108,23 @@ export interface AgentRunResponse {
   error: string | null;
   session_id: string | null;
 }
+
+// ── 对话历史（对齐 app/schemas/conversation.py）──
+
+export interface ConversationSummary {
+  conversation_id: string;
+  title: string;
+  updated_at: string;
+}
+
+export interface MessageOut {
+  role: "user" | "assistant";
+  content: string;
+  extra: { citations?: CitedChunk[]; steps?: IntermediateStep[] } | null;
+}
+
+export interface ConversationDetail {
+  conversation_id: string;
+  title: string;
+  messages: MessageOut[];
+}

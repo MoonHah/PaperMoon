@@ -2,6 +2,8 @@ import { clearToken, getToken } from "./auth";
 import type {
   AgentRunRequest,
   AgentRunResponse,
+  ConversationDetail,
+  ConversationSummary,
   DocumentChunksResponse,
   DocumentContentResponse,
   DocumentNotesResponse,
@@ -150,6 +152,20 @@ export function uploadDocument(file: File): Promise<DocumentUploadResponse> {
     { method: "POST", body: form },
     UPLOAD_TIMEOUT_MS,
   );
+}
+
+// ── 对话历史 ──
+
+export function listConversations(): Promise<ConversationSummary[]> {
+  return request<ConversationSummary[]>("/api/v1/conversations");
+}
+
+export function getConversation(id: string): Promise<ConversationDetail> {
+  return request<ConversationDetail>(`/api/v1/conversations/${id}`);
+}
+
+export function deleteConversation(id: string): Promise<void> {
+  return request<void>(`/api/v1/conversations/${id}`, { method: "DELETE" });
 }
 
 export function runAgent(req: AgentRunRequest): Promise<AgentRunResponse> {
