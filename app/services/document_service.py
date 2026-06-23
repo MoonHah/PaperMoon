@@ -161,7 +161,13 @@ def delete(session: Session, doc: Document) -> None:
         logger.warning("删除向量失败 %s: %s", document_id, e)
 
     storage_dir = Path(settings.storage_path)
-    for name in (f"{document_id}{file_type}", f"{document_id}.content.md"):
+    # 原件 + 解析正文 + 笔记正文/状态：一并清理，避免删文档后留孤儿文件。
+    for name in (
+        f"{document_id}{file_type}",
+        f"{document_id}.content.md",
+        f"{document_id}.notes.md",
+        f"{document_id}.notes.json",
+    ):
         try:
             (storage_dir / name).unlink(missing_ok=True)
         except Exception as e:

@@ -166,6 +166,17 @@ def test_delete_nonexistent_returns_404(client: TestClient):
     assert client.delete("/api/v1/documents/nope").status_code == 404
 
 
+def test_delete_document_removes_notes_files(client: TestClient, tmp_storage):
+    # 删文档应一并清掉笔记正文/状态文件，不留孤儿
+    doc_id = client.post("/api/v1/documents/upload", files=[_txt_file()]).json()["document_id"]
+    (tmp_storage / f"{doc_id}.notes.md").write_text("note", encoding="utf-8")
+    (tmp_storage / f"{doc_id}.notes.json").write_text('{"status": "READY"}', encoding="utf-8")
+
+    assert client.delete(f"/api/v1/documents/{doc_id}").status_code == 204
+    assert not (tmp_storage / f"{doc_id}.notes.md").exists()
+    assert not (tmp_storage / f"{doc_id}.notes.json").exists()
+
+
 def test_delete_not_owner_returns_404(anon_client: TestClient):
     a = _auth_headers(anon_client, "a@del.com")
     b = _auth_headers(anon_client, "b@del.com")
