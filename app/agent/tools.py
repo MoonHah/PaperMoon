@@ -1,7 +1,7 @@
 from app.agent.schemas import CitedChunk
+from app.core import database
 from app.core.config import settings
 from app.core.context import get_current_user_id, get_document_scope
-from app.core.database import SessionLocal
 from app.repositories import document_repository
 from app.services import document_service
 from app.services.llm_service import get_llm_service
@@ -9,6 +9,19 @@ from app.services.retrieval import get_retriever
 
 # 工具均由 graph_agent.run 在设置好 current_user_id / current_document_scope contextvar 后
 # 经 Agent 调用，故这里读 contextvar 即可拿到当前用户 + 对话文档范围，做按用户隔离 + 范围限定。
+# SessionLocal 用模块限定 database.SessionLocal()（而非 from ... import）：便于测试统一替换为测试库。
+
+
+def _load_text_or_guide(db, user_id: str | None, document_id: str) -> str:
+    """取正文；失败转成给 LLM 的可操作指引——引导它先 list_documents 拿真实 ID 再重试，
+    而不是把裸异常丢回去让它瞎猜（ACI：指导性错误优于裸 str(exception)）。"""
+    try:
+        return document_service.load_text(db, user_id, document_id)
+    except ValueError as e:
+        raise ValueError(
+            f"未找到 document_id={document_id!r} 对应的文档或其内容不可用（不存在/非本人/未就绪）。"
+            "请先调用 list_documents 获取当前可用文档的真实 document_id，再用准确的 ID 重试。"
+        ) from e
 
 
 def search_documents(query: str, top_k: int = 5) -> list[CitedChunk]:
@@ -30,7 +43,7 @@ def list_documents() -> list[dict]:
     if user_id is None:
         return []
     scope = get_document_scope()
-    db = SessionLocal()
+    db = database.SessionLocal()
     try:
         docs = document_repository.get_all_by_user(db, user_id)
         return [
@@ -43,9 +56,9 @@ def list_documents() -> list[dict]:
 
 
 def summarize_document(document_id: str) -> str:
-    db = SessionLocal()
+    db = database.SessionLocal()
     try:
-        content = document_service.load_text(db, get_current_user_id(), document_id)
+        content = _load_text_or_guide(db, get_current_user_id(), document_id)
     finally:
         db.close()
 
@@ -58,13 +71,17 @@ def summarize_document(document_id: str) -> str:
 
 
 def compare_documents(document_ids: list[str]) -> str:
-    if len(document_ids) < 2:
-        raise ValueError("Compare needs at least 2 documents!")
+    # 入参护栏：去重（保序）后须有 ≥2 篇不同文档，否则给可操作指引而非笼统报错。
+    ids = list(dict.fromkeys(document_ids))
+    if len(ids) < 2:
+        raise ValueError(
+            "对比至少需要 2 篇不同的文档。请先调用 list_documents 选出 ≥2 个不同的 document_id 再重试。"
+        )
 
     user_id = get_current_user_id()
-    db = SessionLocal()
+    db = database.SessionLocal()
     try:
-        contents = [document_service.load_text(db, user_id, doc_id) for doc_id in document_ids]
+        contents = [_load_text_or_guide(db, user_id, doc_id) for doc_id in ids]
     finally:
         db.close()
 
