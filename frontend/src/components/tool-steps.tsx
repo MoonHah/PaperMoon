@@ -1,3 +1,4 @@
+import { CornerDownRight } from "lucide-react";
 import type { IntermediateStep } from "@/lib/types";
 
 function statusDot(status: string): string {
@@ -28,6 +29,16 @@ export function ToolSteps({ steps }: { steps: IntermediateStep[] }) {
               <p className="mt-0.5 break-words font-mono text-caption-mono-sm text-muted-foreground">
                 {s.detail}
               </p>
+              {s.result && (
+                <p
+                  className={`mt-1 flex items-start gap-1 break-words font-mono text-caption-mono-sm ${
+                    s.status === "error" ? "text-destructive" : "text-muted-foreground"
+                  }`}
+                >
+                  <CornerDownRight className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                  <span className="min-w-0">{s.result}</span>
+                </p>
+              )}
             </div>
           </li>
         ))}

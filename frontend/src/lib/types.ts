@@ -86,6 +86,7 @@ export interface IntermediateStep {
   action: string;
   detail: string;
   status: string;
+  result?: string; // 工具产出的单行短预览（旧会话记录可能没有此字段）
 }
 
 export interface CitedChunk {
