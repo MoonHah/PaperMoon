@@ -40,17 +40,18 @@ def _persist_stream_turn(request: AgentRunRequest, user_id: str, final_event: di
     """流式收尾落库：用 fresh SessionLocal（不能用 get_db——流式在请求返回后才迭代，
     那时 get_db 的 session 已关闭）。失败只记日志，不影响已发完的流。"""
     try:
+        session_id: str = final_event["session_id"]  # run_stream 必定带（非空），用它避免 str|None 收窄
         response = AgentRunResponse(
             final_answer=final_event["final_answer"],
             selected_tool="(final)",
             intermediate_steps=[IntermediateStep(**s) for s in final_event.get("steps", [])],
             citations=[CitedChunk(**c) for c in final_event.get("citations", [])],
-            session_id=final_event["session_id"],
+            session_id=session_id,
         )
         db = database.SessionLocal()
         try:
             conversation_service.record_turn(
-                db, user_id, response.session_id, request.user_query, response
+                db, user_id, session_id, request.user_query, response
             )
         finally:
             db.close()
