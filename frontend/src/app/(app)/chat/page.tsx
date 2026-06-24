@@ -7,7 +7,7 @@ import {
   deleteConversation,
   getConversation,
   listConversations,
-  runAgent,
+  streamAgent,
 } from "@/lib/api";
 import type {
   CitedChunk,
@@ -104,6 +104,15 @@ export default function ChatPage() {
     }
   }
 
+  // 只改最后一个 turn（当前正在进行的这轮）
+  function updateLast(mut: (t: ChatTurn) => ChatTurn) {
+    setTurns((prev) => {
+      const next = [...prev];
+      next[next.length - 1] = mut(next[next.length - 1]);
+      return next;
+    });
+  }
+
   async function send() {
     const query = input.trim();
     if (!query || busy) return;
@@ -112,34 +121,44 @@ export default function ChatPage() {
     setTurns((prev) => [...prev, { query, answer: null, steps: [], citations: [], error: null }]);
 
     try {
-      const res = await runAgent({
-        user_query: query,
-        session_id: sessionRef.current,
-        document_ids: scopeIds, // 空数组 = 不限定范围（后端归一为 None）
-      });
-      if (res.session_id) {
-        sessionRef.current = res.session_id;
-        setActiveId(res.session_id);
-      }
-      setTurns((prev) => {
-        const next = [...prev];
-        next[next.length - 1] = {
-          query,
-          answer: res.final_answer,
-          steps: res.intermediate_steps,
-          citations: res.citations,
-          error: res.error,
-        };
-        return next;
-      });
+      await streamAgent(
+        {
+          user_query: query,
+          session_id: sessionRef.current,
+          document_ids: scopeIds, // 空数组 = 不限定范围（后端归一为 None）
+        },
+        (ev) => {
+          if (ev.type === "step_start") {
+            // 工具发起：先以"运行中"占位，结果回来再更新
+            updateLast((t) => ({
+              ...t,
+              steps: [
+                ...t.steps,
+                { step: ev.step, action: ev.action, detail: ev.detail, status: "running", result: "" },
+              ],
+            }));
+          } else if (ev.type === "step_result") {
+            updateLast((t) => ({
+              ...t,
+              steps: t.steps.map((s) =>
+                s.step === ev.step ? { ...s, status: ev.status, result: ev.result } : s,
+              ),
+            }));
+          } else if (ev.type === "final") {
+            if (ev.session_id) {
+              sessionRef.current = ev.session_id;
+              setActiveId(ev.session_id);
+            }
+            updateLast((t) => ({ ...t, answer: ev.final_answer, citations: ev.citations ?? [] }));
+          } else if (ev.type === "error") {
+            updateLast((t) => ({ ...t, answer: null, error: ev.message }));
+          }
+        },
+      );
       refreshList(); // 新建/更新的会话进侧栏（后端已落库）
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "请求失败";
-      setTurns((prev) => {
-        const next = [...prev];
-        next[next.length - 1] = { ...next[next.length - 1], answer: null, error: msg };
-        return next;
-      });
+      updateLast((t) => ({ ...t, answer: null, error: msg }));
     } finally {
       setBusy(false);
     }
@@ -205,13 +224,20 @@ export default function ChatPage() {
                       </div>
                     </div>
                     <div className="border-l-2 border-primary pl-4">
-                      {t.answer === null && !t.error ? (
-                        <p className="flex items-center gap-2 text-foreground">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary motion-safe:animate-pulse" />
-                          思考中…
-                        </p>
-                      ) : t.error ? (
-                        <p className="text-destructive">{t.error}</p>
+                      {t.error ? (
+                        <>
+                          {t.steps.length > 0 && <ToolSteps steps={t.steps} />}
+                          <p className="text-destructive">{t.error}</p>
+                        </>
+                      ) : t.answer === null ? (
+                        // 进行中：轨迹实时展开 + 处理指示
+                        <>
+                          {t.steps.length > 0 && <ToolSteps steps={t.steps} open />}
+                          <p className="mt-2 flex items-center gap-2 text-foreground">
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary motion-safe:animate-pulse" />
+                            {t.steps.length > 0 ? "处理中…" : "思考中…"}
+                          </p>
+                        </>
                       ) : (
                         <>
                           <div className="text-base text-foreground">

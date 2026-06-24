@@ -4,15 +4,17 @@ import type { IntermediateStep } from "@/lib/types";
 function statusDot(status: string): string {
   if (status === "ok") return "bg-success";
   if (status === "error") return "bg-destructive";
+  if (status === "running") return "bg-info motion-safe:animate-pulse";
   return "bg-info";
 }
 
-// Agent 的 ReAct 多步推理轨迹，默认折叠（点开看每一步调了什么工具、入参、成败）。
-export function ToolSteps({ steps }: { steps: IntermediateStep[] }) {
+// Agent 的 ReAct 多步推理轨迹（点开看每一步调了什么工具、入参、成败、产出）。
+// open：流式进行时实时展开，便于看着它一步步干活；完成后折叠。
+export function ToolSteps({ steps, open = false }: { steps: IntermediateStep[]; open?: boolean }) {
   if (steps.length === 0) return null;
 
   return (
-    <details className="mt-3 rounded-sm border border-border bg-muted">
+    <details open={open} className="mt-3 rounded-sm border border-border bg-muted">
       <summary className="cursor-pointer select-none px-4 py-2 font-mono text-caption-mono-sm uppercase text-muted-foreground">
         推理轨迹 · {steps.length} 步
       </summary>

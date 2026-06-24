@@ -2,6 +2,7 @@ import { clearToken, getToken } from "./auth";
 import type {
   AgentRunRequest,
   AgentRunResponse,
+  AgentStreamEvent,
   ConversationDetail,
   ConversationSummary,
   DocumentChunksResponse,
@@ -178,4 +179,52 @@ export function runAgent(req: AgentRunRequest): Promise<AgentRunResponse> {
     },
     AGENT_TIMEOUT_MS,
   );
+}
+
+// 流式跑 agent（SSE）：边收边回调，实时展示推理轨迹。
+// 不走 request()/EventSource：EventSource 不能带 Authorization 头/POST body，故用 fetch 读流。
+// 不设超时——多步推理可能数十秒，靠流自然结束（[DONE]）或用户关闭页面终止。
+export async function streamAgent(
+  req: AgentRunRequest,
+  onEvent: (ev: AgentStreamEvent) => void,
+): Promise<void> {
+  const token = getToken();
+  const headers = new Headers({ "Content-Type": "application/json" });
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  const res = await fetch("/api/v1/agent/run/stream", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(req),
+  });
+  if (!res.ok || !res.body) {
+    if (res.status === 401 && token && typeof window !== "undefined") {
+      clearToken();
+      window.location.href = "/login";
+    }
+    throw new ApiError(res.status, "请求失败，请稍后重试。");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // SSE 以空行分隔事件；不完整的尾段留在 buffer 等下一块拼接
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+    for (const part of parts) {
+      const line = part.trim();
+      if (!line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (data === "[DONE]") return;
+      try {
+        onEvent(JSON.parse(data) as AgentStreamEvent);
+      } catch {
+        /* 跳过无法解析的片段 */
+      }
+    }
+  }
 }

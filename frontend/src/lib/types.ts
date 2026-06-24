@@ -110,6 +110,19 @@ export interface AgentRunResponse {
   session_id: string | null;
 }
 
+// 流式端点 /agent/run/stream 的 SSE 事件（对齐 graph_agent.run_stream）
+export type AgentStreamEvent =
+  | { type: "step_start"; step: number; action: string; detail: string }
+  | { type: "step_result"; step: number | null; status: string; result: string }
+  | {
+      type: "final";
+      final_answer: string;
+      citations: CitedChunk[];
+      steps?: IntermediateStep[];
+      session_id: string;
+    }
+  | { type: "error"; message: string; session_id?: string };
+
 // ── 对话历史（对齐 app/schemas/conversation.py）──
 
 export interface ConversationSummary {
