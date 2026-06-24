@@ -129,6 +129,18 @@ def _db_tables() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
+def _bind_sessionlocal_to_test_engine(monkeypatch) -> None:
+    """让模块限定的 database.SessionLocal() 调用走测试内存库。
+
+    get_db 已由 dependency_overrides 接管，但流式落库等场景在请求返回后才迭代、
+    不能用 get_db，改用 database.SessionLocal()——把它指到测试引擎，否则会连真实库。
+    """
+    import app.core.database as _db
+
+    monkeypatch.setattr(_db, "SessionLocal", _TestSession)
+
+
+@pytest.fixture(autouse=True)
 def _mock_celery(monkeypatch) -> None:
     """Prevent *.delay() from connecting to a real Celery broker."""
     import app.workers.document_tasks as _tasks

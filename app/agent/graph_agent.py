@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from typing import Annotated, TypedDict
 from uuid import uuid4
 
@@ -269,3 +270,95 @@ def run(request: AgentRunRequest, user_id: str) -> AgentRunResponse:
         citations=citations,
         session_id=session_id
     )
+
+
+def run_stream(request: AgentRunRequest, user_id: str) -> Iterator[dict]:
+    """流式跑 agent：把 graph.stream(updates) 的逐节点产出翻译成前端事件，实时展示推理轨迹。
+
+    与 run() 同源（共用图 + _result_preview + 按 tool_call_id 配对 + 引用回收），区别只是
+    增量 yield 而非跑完再回收。事件类型：
+      - step_start  {step, action, detail}        —— agent 发起工具调用（前端标"运行中"）
+      - step_result {step, status, result}        —— 工具执行完，如实 status + 结果预览
+      - final       {final_answer, citations, steps, session_id}  —— 收尾（steps 供端点落库）
+      - error       {message}                     —— 流内任何异常
+
+    ⚠️ contextvar 必须在本生成器内 set/reset：StreamingResponse 在线程池迭代生成器，
+    端点里设的 contextvar 不会传进来——否则工具拿不到 user/scope，隔离失效。
+    落库不在此处（保持 agent 与会话存储解耦），由端点拿 final 事件后用 fresh session 写。
+    """
+    session_id = request.session_id or str(uuid4())
+    thread_id = f"{user_id}:{session_id}"
+    scope = request.document_ids or None
+
+    steps_by_id: dict[str, dict] = {}   # tool_call_id -> step dict（start 时建，result 时补 status/result）
+    order: list[str] = []               # 保持步骤出现顺序
+    citations: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    final_answer = ""
+
+    token = set_current_user_id(user_id)
+    scope_token = set_document_scope(scope)
+    try:
+        for update in get_agent_graph().stream(
+            {"messages": [HumanMessage(content=request.user_query)]},
+            config={"configurable": {"thread_id": thread_id}, "recursion_limit": 10},
+            stream_mode="updates",
+        ):
+            for node, payload in update.items():
+                messages = payload.get("messages", []) if isinstance(payload, dict) else []
+                for m in messages:
+                    if node == "agent":
+                        tool_calls = getattr(m, "tool_calls", None) or []
+                        for tc in tool_calls:
+                            step_no = len(order) + 1
+                            steps_by_id[tc["id"]] = {
+                                "step": step_no,
+                                "action": tc["name"],
+                                "detail": str(tc.get("args", {})),
+                                "status": "ok",
+                                "result": "",
+                            }
+                            order.append(tc["id"])
+                            yield {
+                                "type": "step_start",
+                                "step": step_no,
+                                "action": tc["name"],
+                                "detail": str(tc.get("args", {})),
+                            }
+                        if not tool_calls:
+                            final_answer = m.content   # 无 tool_calls 的 AI 消息 = 最终答案
+                    elif node == "tools" and isinstance(m, ToolMessage):
+                        s = steps_by_id.get(m.tool_call_id)
+                        status = "error" if getattr(m, "status", None) == "error" else "ok"
+                        result = _result_preview(m.content)
+                        if s is not None:
+                            s["status"], s["result"] = status, result
+                        yield {
+                            "type": "step_result",
+                            "step": s["step"] if s else None,
+                            "status": status,
+                            "result": result,
+                        }
+                        if m.name == "search_documents" and m.artifact:
+                            for c in m.artifact:
+                                key = (c["document_id"], c["text"])
+                                if key not in seen:
+                                    seen.add(key)
+                                    citations.append(c)
+
+        yield {
+            "type": "final",
+            "final_answer": final_answer,
+            "citations": citations,
+            "steps": [steps_by_id[i] for i in order],
+            "session_id": session_id,
+        }
+    except Exception as e:
+        # 流内异常兜底（检索/LLM 失败等）：发 error 事件让前端收口，绝不裸断
+        yield {"type": "error", "message": "Agent 执行失败，请稍后重试。", "session_id": session_id}
+        # 记录真实原因供排障（不外泄给前端）
+        import logging
+        logging.getLogger(__name__).error("agent stream failed [%s]: %s", type(e).__name__, e)
+    finally:
+        reset_document_scope(scope_token)
+        reset_current_user_id(token)
