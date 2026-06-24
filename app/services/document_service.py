@@ -174,13 +174,16 @@ def delete(session: Session, doc: Document) -> None:
             logger.warning("删除存储文件失败 %s: %s", name, e)
 
 
-def _truncate_for_notes(content: str) -> str:
-    """把正文截断到 settings.notes_max_chars，避免大文档全文塞进单次 LLM 调用导致超时。
-    设 0 表示不截断。超长文档因此只覆盖前段——可接受的廉价档取舍（完整覆盖需 map-reduce）。
+def truncate_for_llm(content: str, limit: int | None = None) -> str:
+    """把单次喂给 LLM 的正文截断到字符预算，避免大文档全文塞进单次调用导致超时。
+
+    limit 默认取 settings.notes_max_chars——笔记/总结/对比共用同一预算（设 0 表示不截断）。
+    超长文档因此只覆盖前段，是可接受的廉价档取舍（完整覆盖需 map-reduce）。
     """
-    limit = settings.notes_max_chars
+    if limit is None:
+        limit = settings.notes_max_chars
     if limit and len(content) > limit:
-        logger.info("notes 正文截断 %d→%d 字符 (notes_max_chars)", len(content), limit)
+        logger.info("LLM 正文截断 %d→%d 字符 (limit=%d)", len(content), limit, limit)
         return content[:limit]
     return content
 
@@ -265,7 +268,7 @@ def run_notes_generation(session: Session, user_id: str, document_id: str) -> No
     try:
         _, content = get_content(session, user_id, document_id)
         notes = get_llm_service(settings).chat(
-            _NOTES_PROMPT, context_chunks=[_truncate_for_notes(content)]
+            _NOTES_PROMPT, context_chunks=[truncate_for_llm(content)]
         )
         _notes_md_file(document_id).write_text(notes, encoding="utf-8")
         _write_notes_status(document_id, NOTES_READY)

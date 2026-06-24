@@ -1,33 +1,42 @@
 from app.agent.schemas import CitedChunk
 from app.core.config import settings
-from app.core.context import get_current_user_id
+from app.core.context import get_current_user_id, get_document_scope
 from app.core.database import SessionLocal
 from app.repositories import document_repository
 from app.services import document_service
 from app.services.llm_service import get_llm_service
 from app.services.retrieval import get_retriever
 
-# 工具均由 graph_agent.run 在设置好 current_user_id contextvar 后经 Agent 调用，
-# 因此这里读 contextvar 即可拿到当前用户，做按用户隔离（检索/列表/归属校验）。
+# 工具均由 graph_agent.run 在设置好 current_user_id / current_document_scope contextvar 后
+# 经 Agent 调用，故这里读 contextvar 即可拿到当前用户 + 对话文档范围，做按用户隔离 + 范围限定。
 
 
 def search_documents(query: str, top_k: int = 5) -> list[CitedChunk]:
-    chunks = get_retriever(settings).retrieve(query, top_k=top_k, user_id=get_current_user_id())
+    chunks = get_retriever(settings).retrieve(
+        query,
+        top_k=top_k,
+        user_id=get_current_user_id(),
+        document_ids=get_document_scope(),   # 用户勾选范围；None=全部已就绪文档
+    )
     return [CitedChunk(**chunk) for chunk in chunks]
 
 
 def list_documents() -> list[dict]:
-    """列出当前用户已就绪（READY）的文档，供 agent 把自然语言指代映射到真实 document_id。"""
+    """列出当前用户已就绪（READY）的文档，供 agent 把自然语言指代映射到真实 document_id。
+
+    若本轮对话限定了文档范围（用户勾选），只列范围内的，避免 agent 漫游到范围外文档。
+    """
     user_id = get_current_user_id()
     if user_id is None:
         return []
+    scope = get_document_scope()
     db = SessionLocal()
     try:
         docs = document_repository.get_all_by_user(db, user_id)
         return [
             {"document_id": d.document_id, "filename": d.filename}
             for d in docs
-            if d.status == "READY"
+            if d.status == "READY" and (scope is None or d.document_id in scope)
         ]
     finally:
         db.close()
@@ -40,10 +49,11 @@ def summarize_document(document_id: str) -> str:
     finally:
         db.close()
 
+    # 截断到字符预算：大文档整篇塞进单次调用会超时（与笔记同源风险），共用 truncate_for_llm。
     llm = get_llm_service(settings)
     return llm.chat(
         "请为这篇文档生成一份简洁但包含核心重点内容的总结, 同时确保不伪造数据或者文章内容。",
-        context_chunks=[content],
+        context_chunks=[document_service.truncate_for_llm(content)],
     )
 
 
@@ -58,6 +68,8 @@ def compare_documents(document_ids: list[str]) -> str:
     finally:
         db.close()
 
+    # 每篇各自截断到字符预算：多篇正文累加更易爆上下文/超时，逐篇 truncate_for_llm。
+    contents = [document_service.truncate_for_llm(c) for c in contents]
     llm = get_llm_service(settings)
     return llm.chat(
         query=(
@@ -73,6 +85,9 @@ def compare_documents(document_ids: list[str]) -> str:
 
 
 def generate_markdown_notes(topic: str, query: str) -> str:
+    # 注意区分两套"笔记"（非冗余，入口不同）：
+    #   - 本工具：对话内「按需」围绕 topic 检索片段即时生成，是 agent 的一个 tool。
+    #   - document_service.run_notes_generation：文档级「预生成」整篇笔记，异步落盘，走 /documents/{id}/notes。
     chunks = search_documents(query)
     contents = [chunk.text for chunk in chunks]
     llm = get_llm_service(settings)

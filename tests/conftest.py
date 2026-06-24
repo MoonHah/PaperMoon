@@ -79,16 +79,24 @@ class InMemoryVectorStore:
         return [d["chunk_text"] for d in self._docs[:top_k]]
 
     def search_with_metadata(
-        self, query_embedding: list[float], top_k: int, user_id: str | None = None
+        self,
+        query_embedding: list[float],
+        top_k: int,
+        user_id: str | None = None,
+        document_ids: list[str] | None = None,
     ) -> list[dict]:
-        # 忽略 user_id 过滤（见 upsert 注释）：保持检索 mechanics 测试不受多租户影响
+        # 忽略 user_id 过滤（见 upsert 注释）：保持检索 mechanics 测试不受多租户影响。
+        # document_ids 则如实过滤——对话范围限定是检索 mechanics 的一部分，需可被单测覆盖。
+        docs = self._docs
+        if document_ids:
+            docs = [d for d in docs if d["document_id"] in document_ids]
         return [
             {
                 "text": d["chunk_text"],
                 "document_id": d["document_id"],
                 "filename": d["filename"],
             }
-            for d in self._docs[:top_k]
+            for d in docs[:top_k]
         ]
 
     def count(self, user_id: str | None = None) -> int:

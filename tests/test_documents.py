@@ -191,16 +191,16 @@ def test_delete_not_owner_returns_404(anon_client: TestClient):
 
 # ── Notes ────────────────────────────────────────────────────────────────────
 
-def test_truncate_for_notes_caps_and_passes_through(monkeypatch):
+def test_truncate_for_llm_caps_and_passes_through(monkeypatch):
     from app.core.config import settings
     from app.services import document_service
 
     monkeypatch.setattr(settings, "notes_max_chars", 100)
-    assert len(document_service._truncate_for_notes("x" * 500)) == 100
-    assert document_service._truncate_for_notes("short") == "short"
+    assert len(document_service.truncate_for_llm("x" * 500)) == 100
+    assert document_service.truncate_for_llm("short") == "short"
 
     monkeypatch.setattr(settings, "notes_max_chars", 0)  # 0 = 不截断
-    assert len(document_service._truncate_for_notes("x" * 500)) == 500
+    assert len(document_service.truncate_for_llm("x" * 500)) == 500
 
 
 def test_generate_notes_on_not_ready_doc_returns_409(client: TestClient):

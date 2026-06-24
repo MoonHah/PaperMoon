@@ -23,8 +23,16 @@ class RerankRetriever:
         self._fetch_k = fetch_k
         self._temperature = temperature
 
-    def retrieve(self, query: str, top_k: int, user_id: str | None = None) -> list[dict]:
-        candidates = self._base.retrieve(query, top_k=self._fetch_k, user_id=user_id)   # 先召回较多
+    def retrieve(
+        self,
+        query: str,
+        top_k: int,
+        user_id: str | None = None,
+        document_ids: list[str] | None = None,
+    ) -> list[dict]:
+        candidates = self._base.retrieve(
+            query, top_k=self._fetch_k, user_id=user_id, document_ids=document_ids
+        )   # 先召回较多
         if len(candidates) <= top_k:
             return candidates           # 候选还没 top_k 多，重排无意义
         order = self._rerank(query, candidates)        # LLM 给出重排后的索引顺序

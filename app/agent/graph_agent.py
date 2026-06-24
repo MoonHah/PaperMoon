@@ -11,7 +11,12 @@ from pydantic import SecretStr
 
 from app.agent import tools as _impl    # 复用现有工具实现
 from app.core.config import settings
-from app.core.context import reset_current_user_id, set_current_user_id
+from app.core.context import (
+    reset_current_user_id,
+    reset_document_scope,
+    set_current_user_id,
+    set_document_scope,
+)
 
 from app.agent.schemas import AgentRunRequest, AgentRunResponse, CitedChunk, IntermediateStep
 from langgraph.checkpoint.memory import MemorySaver # for checkpointer
@@ -189,7 +194,10 @@ def run(request: AgentRunRequest, user_id: str) -> AgentRunResponse:
     """
     session_id = request.session_id or str(uuid4())
     thread_id = f"{user_id}:{session_id}"   # 会话按用户隔离
+    # 文档范围：用户勾选则限定检索/列举在这些文档内；空列表视为不限定（全部已就绪文档）。
+    scope = request.document_ids or None
     token = set_current_user_id(user_id)
+    scope_token = set_document_scope(scope)
     try:
         # invoke 从入口跑到 END，自动驱动 agent↔tools 循环，返回跑完的完整 state
         result = get_agent_graph().invoke(
@@ -208,6 +216,7 @@ def run(request: AgentRunRequest, user_id: str) -> AgentRunResponse:
             session_id=session_id
         )
     finally:
+        reset_document_scope(scope_token)
         reset_current_user_id(token)
 
     # 完整历史：Human → AI(tool_calls) → Tool → … → AI(最终答案)

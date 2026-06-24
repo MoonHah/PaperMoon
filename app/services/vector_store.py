@@ -5,7 +5,7 @@ class VectorStore(Protocol):
     def ensure_collection(self) -> None: ...
     def upsert(self, document_id: str, user_id: str, filename: str, chunks: list[str], embeddings: list[list[float]]) -> None: ...
     def delete_by_document_id(self, document_id: str) -> None: ...
-    def search_with_metadata(self, query_embedding: list[float], top_k: int, user_id: str | None = None) -> list[dict]: ...
+    def search_with_metadata(self, query_embedding: list[float], top_k: int, user_id: str | None = None, document_ids: list[str] | None = None) -> list[dict]: ...
     def count(self, user_id: str | None = None) -> int: ...
 
 
@@ -71,16 +71,22 @@ class QdrantVectorStore:
         )
 
     def search_with_metadata(
-        self, query_embedding: list[float], top_k: int, user_id: str | None = None
+        self,
+        query_embedding: list[float],
+        top_k: int,
+        user_id: str | None = None,
+        document_ids: list[str] | None = None,
     ) -> list[dict]:
-        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        from qdrant_client.models import Filter, FieldCondition, MatchAny, MatchValue
 
-        # 多租户：仅检索该用户的向量（user_id 为 None 时不过滤，供离线评估等无用户上下文场景）
-        query_filter = (
-            Filter(must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))])
-            if user_id is not None
-            else None
-        )
+        # 组合过滤（AND）：user_id 做多租户隔离，document_ids 做对话范围限定。
+        # user_id 为 None 不过滤（离线评估等无用户上下文场景）；document_ids 为空不限定范围。
+        must = []
+        if user_id is not None:
+            must.append(FieldCondition(key="user_id", match=MatchValue(value=user_id)))
+        if document_ids:
+            must.append(FieldCondition(key="document_id", match=MatchAny(any=document_ids)))
+        query_filter = Filter(must=must) if must else None
         results = self._client.query_points(
             collection_name=self._collection,
             query=query_embedding,

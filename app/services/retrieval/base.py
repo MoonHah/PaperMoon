@@ -11,6 +11,13 @@ class Retriever(Protocol):
         - filename:    来源文件名
     具体检索方式（直连向量库、Multi Query…）由实现类决定，调用方只依赖本契约。
     user_id 用于多租户隔离（只检索该用户的向量）；为 None 时不过滤（离线评估等场景）。
+    document_ids 用于对话范围限定（只检索这些文档的片段）；为空/None 时不限定范围。
     """
 
-    def retrieve(self, query: str, top_k: int, user_id: str | None = None) -> list[dict]: ...
+    def retrieve(
+        self,
+        query: str,
+        top_k: int,
+        user_id: str | None = None,
+        document_ids: list[str] | None = None,
+    ) -> list[dict]: ...
