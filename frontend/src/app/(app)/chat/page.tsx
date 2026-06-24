@@ -19,6 +19,7 @@ import { ToolSteps } from "@/components/tool-steps";
 import { CitationCards } from "@/components/citation-card";
 import { Markdown } from "@/components/markdown";
 import { ChatSidebar } from "@/components/chat-sidebar";
+import { ChatScope } from "@/components/chat-scope";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -55,6 +56,7 @@ export default function ChatPage() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [scopeIds, setScopeIds] = useState<string[]>([]); // 对话文档范围（空=全部）
   const sessionRef = useRef<string | null>(null); // 当前会话 id（langgraph session_id）
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -78,6 +80,7 @@ export default function ChatPage() {
       setTurns(messagesToTurns(detail.messages));
       sessionRef.current = id;
       setActiveId(id);
+      setScopeIds([]); // 范围是实时控件，不随历史会话恢复（后端未按会话持久化范围）
     } catch {
       /* 加载失败忽略 */
     }
@@ -87,6 +90,7 @@ export default function ChatPage() {
     setTurns([]);
     sessionRef.current = null;
     setActiveId(null);
+    setScopeIds([]);
   }
 
   async function handleDelete(id: string) {
@@ -108,7 +112,11 @@ export default function ChatPage() {
     setTurns((prev) => [...prev, { query, answer: null, steps: [], citations: [], error: null }]);
 
     try {
-      const res = await runAgent({ user_query: query, session_id: sessionRef.current });
+      const res = await runAgent({
+        user_query: query,
+        session_id: sessionRef.current,
+        document_ids: scopeIds, // 空数组 = 不限定范围（后端归一为 None）
+      });
       if (res.session_id) {
         sessionRef.current = res.session_id;
         setActiveId(res.session_id);
@@ -173,7 +181,8 @@ export default function ChatPage() {
               新对话
             </Button>
           )}
-          <span className="font-mono text-caption-mono-sm uppercase text-muted-foreground">
+          <ChatScope selected={scopeIds} onChange={setScopeIds} />
+          <span className="ml-auto font-mono text-caption-mono-sm uppercase text-muted-foreground">
             Agent · 对话
           </span>
         </div>
