@@ -68,6 +68,9 @@ services:
       # Agent 多轮记忆落 PG（默认 memory 是进程内 RAM，重启即失忆）。checkpoint 表 langgraph 自治、
       # 首次 agent 调用 setup() 幂等建（不入 Alembic）。仅 api 需要——worker 不跑 agent。
       CHECKPOINT_BACKEND: postgres
+      # 检索相关性阈值（按 vector.search 日志实测调出：噪声≤0.27、相关≥0.47，取 0.35 分界）。
+      # 低于此分数的 chunk 丢弃→无相关时返回空→agent 据 grounding 如实回"无相关内容"。
+      RETRIEVAL_SCORE_THRESHOLD: "0.35"
       HF_HOME: /models                # Docling 的 HF 模型缓存目录 → 落到持久卷
       HF_HUB_OFFLINE: "1"             # 模型已预热进 model_cache 卷，运行时离线使用、不碰网络
     volumes:
