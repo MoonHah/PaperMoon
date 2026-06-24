@@ -44,6 +44,14 @@ def test_stream_returns_sse_and_final(client: TestClient):
     assert final[0]["session_id"]
 
 
+def test_stream_emits_answer_tokens(client: TestClient):
+    # 最终答案逐 token 流（stream_mode=messages）：拼接所有 token == 完整答案
+    resp = client.post("/api/v1/agent/run/stream", json={"user_query": "hi"})
+    tokens = [e for e in _events(resp.text) if e.get("type") == "token"]
+    assert tokens, "应至少产出一个 token 事件（打字机效果）"
+    assert "".join(t["text"] for t in tokens) == "[FAKE] answer"
+
+
 def test_stream_persists_conversation(client: TestClient):
     resp = client.post("/api/v1/agent/run/stream", json={"user_query": "落库测试"})
     sid = next(e for e in _events(resp.text) if e.get("type") == "final")["session_id"]

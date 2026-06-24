@@ -279,7 +279,8 @@ def run_stream(request: AgentRunRequest, user_id: str) -> Iterator[dict]:
     增量产出而非跑完再回收。事件类型：
       - step_start  {step, action, detail}        —— agent 发起工具调用（前端标"运行中"）
       - step_result {step, status, result}        —— 工具执行完，如实 status + 结果预览
-      - final       {final_answer, citations, steps, session_id}  —— 收尾（steps 供端点落库）
+      - token       {text}                        —— agent 节点 LLM 的内容增量（打字机效果）
+      - final       {final_answer, citations, steps, session_id}  —— 收尾（权威全文校正 + 端点落库）
       - error       {message}                     —— 执行期任何异常
 
     ⚠️ 为何用 worker 线程 + 队列、而非直接在本生成器里跑图：
@@ -312,12 +313,20 @@ def run_stream(request: AgentRunRequest, user_id: str) -> Iterator[dict]:
         token = set_current_user_id(user_id)
         scope_token = set_document_scope(scope)
         try:
-            for update in get_agent_graph().stream(
+            for mode, data in get_agent_graph().stream(
                 {"messages": [HumanMessage(content=request.user_query)]},
                 config={"configurable": {"thread_id": thread_id}, "recursion_limit": 10},
-                stream_mode="updates",
+                stream_mode=["updates", "messages"],   # updates=步骤事件；messages=逐 token
             ):
-                for node, payload in update.items():
+                if mode == "messages":
+                    # 逐 token 流：只取 agent 节点 LLM 的内容增量（工具用直连 LLM、不经 langgraph，
+                    # 故不会混入；最终答案由下方 final 事件用权威全文校正）。
+                    msg, meta = data
+                    text = getattr(msg, "content", "") or ""
+                    if text and meta.get("langgraph_node") == "agent":
+                        events.put({"type": "token", "text": text})
+                    continue
+                for node, payload in data.items():   # mode == "updates"
                     messages = payload.get("messages", []) if isinstance(payload, dict) else []
                     for m in messages:
                         if node == "agent":
