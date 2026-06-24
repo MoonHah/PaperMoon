@@ -82,4 +82,12 @@ def agent_run_stream(
             _persist_stream_turn(request, user.id, final_event)
         yield "data: [DONE]\n\n"
 
-    return StreamingResponse(sse(), media_type="text/event-stream")
+    return StreamingResponse(
+        sse(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # 禁反代(nginx 等)缓冲，保证逐事件下推
+            "Connection": "keep-alive",
+        },
+    )
