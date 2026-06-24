@@ -229,7 +229,7 @@ export default function ChatPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
               rows={1}
-              placeholder="问 Agent…（Enter 发送，Shift+Enter 换行）"
+              placeholder="有问题，尽管问（Shift + Enter 换行）"
               className="flex-1"
             />
             <Button onClick={send} disabled={!input.trim()} loading={busy} size="lg" aria-label="发送">
