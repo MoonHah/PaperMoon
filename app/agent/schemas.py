@@ -15,9 +15,10 @@ class AgentRunRequest(BaseModel):
 
 class IntermediateStep(BaseModel):
     step: int
-    action: str
-    detail: str
-    status: str
+    action: str            # 工具名
+    detail: str            # 入参（LLM 决定调用时传的 args）
+    status: str            # "ok" | "error"——如实反映该工具是否执行成功
+    result: str = ""       # 工具产出的单行短预览（成功=结果摘要 / 失败=错误信息）
 
 
 class AgentRunResponse(BaseModel):

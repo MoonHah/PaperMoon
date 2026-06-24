@@ -186,6 +186,15 @@ def get_agent_graph():
 
 # =================== Run Agent Service ====================
 
+_RESULT_PREVIEW_LIMIT = 160
+
+
+def _result_preview(content, limit: int = _RESULT_PREVIEW_LIMIT) -> str:
+    """把工具结果压成单行短预览供轨迹展示（折叠空白 + 截断），不改动给 LLM 的原文。"""
+    s = " ".join(str(content).split())
+    return s if len(s) <= limit else s[:limit] + "…"
+
+
 def run(request: AgentRunRequest, user_id: str) -> AgentRunResponse:
     """跑 LangGraph agent，返回与手写版一致的 AgentRunResponse（API 契约不因后端实现而变）。
 
@@ -224,13 +233,22 @@ def run(request: AgentRunRequest, user_id: str) -> AgentRunResponse:
     last_human = max(i for i, m in enumerate(messages) if isinstance(m, HumanMessage))
     current_turn = messages[last_human:]
 
-    # 把历史里的 tool_calls 翻译成 IntermediateStep（与手写版的轨迹格式对齐）
-    steps = [
-        IntermediateStep(step=i + 1, action=tc["name"], detail=str(tc.get("args", {})), status="ok")
-        for i, tc in enumerate(
-            tc for m in current_turn for tc in (getattr(m, "tool_calls", None) or [])
+    # 按 tool_call_id 关联「发起的调用(AIMessage.tool_calls)」与「执行结果(ToolMessage)」。
+    # ToolNode(handle_tool_errors=True) 失败时产出 status="error" 的 ToolMessage——据此如实标注成败，
+    # 不再硬编码 "ok"；content 取单行短预览，让用户看到工具产出而不只是"调了什么"。
+    tool_results = {m.tool_call_id: m for m in current_turn if isinstance(m, ToolMessage)}
+    steps: list[IntermediateStep] = []
+    for tc in (tc for m in current_turn for tc in (getattr(m, "tool_calls", None) or [])):
+        tm = tool_results.get(tc["id"])
+        steps.append(
+            IntermediateStep(
+                step=len(steps) + 1,
+                action=tc["name"],
+                detail=str(tc.get("args", {})),
+                status="error" if (tm is not None and getattr(tm, "status", None) == "error") else "ok",
+                result=_result_preview(tm.content) if tm is not None else "",
+            )
         )
-    ]
 
     # 从本轮 search_documents 的 ToolMessage.artifact 回收结构化引用（content_and_artifact）。
     # 按 (document_id, text) 去重：一轮内可能多次检索、命中重复片段。

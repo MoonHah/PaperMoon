@@ -132,3 +132,39 @@ def test_run_recovers_citations_from_search(monkeypatch):
     assert resp.citations[0].filename == "a.pdf"
     # 轨迹记录了这一步工具调用
     assert any(s.action == "search_documents" for s in resp.intermediate_steps)
+    # status 真实化 + 结果预览：成功的 search 步标 ok 且带非空结果摘要
+    search_step = next(s for s in resp.intermediate_steps if s.action == "search_documents")
+    assert search_step.status == "ok"
+    assert search_step.result
+
+
+def test_run_marks_tool_error_status(monkeypatch):
+    # 工具抛异常 → ToolNode(handle_tool_errors=True) 转成 status="error" 的 ToolMessage
+    # → 轨迹如实标 error，错误信息进结果预览（不再硬编码 "ok"）。
+    def _boom(*a, **kw):
+        raise RuntimeError("检索炸了")
+
+    monkeypatch.setattr(graph_agent._impl, "search_documents", _boom)
+
+    fake = GenericFakeChatModel(messages=iter([
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "search_documents",
+                "args": {"query": "q"},
+                "id": "call_err",
+                "type": "tool_call",
+            }],
+        ),
+        AIMessage(content="抱歉，检索失败了"),
+    ]))
+    monkeypatch.setattr(graph_agent, "_graph", build_agent_graph(llm=fake))
+
+    resp = graph_agent.run(AgentRunRequest(user_query="问题"), "u1")
+
+    assert resp.final_answer == "抱歉，检索失败了"
+    assert len(resp.intermediate_steps) == 1
+    step = resp.intermediate_steps[0]
+    assert step.action == "search_documents"
+    assert step.status == "error"
+    assert step.result  # 错误信息进了结果预览
