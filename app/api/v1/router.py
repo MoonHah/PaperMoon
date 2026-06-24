@@ -4,7 +4,6 @@ from fastapi import APIRouter
 from app.api.v1 import (
     health,
     documents,
-    chat,
     agent,
     auth,
     conversations,
@@ -26,11 +25,6 @@ v1_router.include_router(
     documents.router,
     prefix="/documents",
     tags=["documents"]
-)
-
-v1_router.include_router(
-    chat.router,
-    tags=["chat"]
 )
 
 v1_router.include_router(

@@ -30,15 +30,9 @@ def test_400_upload_unsupported_format_has_envelope(client: TestClient):
     _assert_error_envelope(response.json())
 
 
-def test_400_chat_empty_kb_has_envelope(client: TestClient):
-    response = client.post("/api/v1/chat", json={"query": "anything"})
-    assert response.status_code == 400
-    _assert_error_envelope(response.json())
-
-
 def test_422_missing_required_field_has_envelope(client: TestClient):
-    # ChatRequest requires 'query'; sending empty object triggers 422
-    response = client.post("/api/v1/chat", json={})
+    # upload 端点的 file 是必填项；不带任何文件触发 FastAPI 校验 422
+    response = client.post("/api/v1/documents/upload")
     assert response.status_code == 422
     data = response.json()
     _assert_error_envelope(data)
