@@ -34,7 +34,10 @@ class AgentState(TypedDict):
 _SYSTEM_PROMPT = SystemMessage(
     content=(
         "你是 PaperMoon 的文档阅读助手。对用户作答时一律用文件名指代文档，"
-        "绝不要向用户展示 document_id / UUID（它们仅供你内部调用工具使用）。"
+        "绝不要向用户展示 document_id / UUID（它们仅供你内部调用工具使用）。\n"
+        "严格基于检索到的文档内容回答：当检索结果与用户问题无关或为空时，"
+        "必须明确告知用户「文档库中没有与该问题相关的内容」，"
+        "不得用不相关的文档片段拼凑答案，也不得凭空编造。"
     )
 )
 

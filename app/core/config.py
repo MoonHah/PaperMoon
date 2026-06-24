@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     retrieval_mode: str = "simple"       # "simple" | "multi_query" | "hyde"
     multi_query_count: int = 3
     retrieval_temperature: float = 0.0   # 含 LLM 的检索策略生成温度（0=可复现）
+    # 相关性阈值门控：低于此余弦分数的 chunk 视为无关被丢弃（全丢→空→agent 据 grounding 如实
+    # 回"无相关内容"，不再拿噪声硬凑）。0 = 关闭（不过滤）。须按 embedding 模型+语料经验调参：
+    # text-embedding-3-small 经验区间——相关 ~0.3+、无关 <0.2。先看 vector.search 日志的分数分布再定。
+    retrieval_score_threshold: float = 0.0
 
     # Agent（统一为 LangGraph 后端）
     checkpoint_backend: str = "memory"   # "memory" | "postgres" (postgres = 重启不失忆)

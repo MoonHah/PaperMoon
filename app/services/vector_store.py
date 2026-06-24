@@ -1,5 +1,9 @@
+import logging
 from typing import Protocol
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
+
 
 class VectorStore(Protocol):
     def ensure_collection(self) -> None: ...
@@ -12,11 +16,19 @@ class VectorStore(Protocol):
 
 # Initialize QdrantVectorStore
 class QdrantVectorStore:
-    def __init__(self, url: str, collection: str, vector_size: int, timeout: int = 5):
+    def __init__(
+        self,
+        url: str,
+        collection: str,
+        vector_size: int,
+        timeout: int = 5,
+        score_threshold: float = 0.0,
+    ):
         from qdrant_client import QdrantClient
 
         self._collection = collection
         self._vector_size = vector_size
+        self._score_threshold = score_threshold   # 低于此相关性分数的命中视为无关被丢弃（0=不过滤）
         try:
             self._client = QdrantClient(url=url, timeout=timeout)
         except Exception as e:
@@ -93,15 +105,29 @@ class QdrantVectorStore:
             limit=top_k,
             query_filter=query_filter,
         )
-        return [
-            {
-                "text": hit.payload["chunk_text"],
-                "document_id": hit.payload.get("document_id", ""),
-                "filename": hit.payload.get("filename", ""),
-            }
-            for hit in results.points
-            if hit.payload and "chunk_text" in hit.payload
-        ]
+        # 记录各命中的相关性分数（含被阈值丢弃的），便于按数据调参 retrieval_score_threshold
+        logger.info(
+            "vector.search",
+            extra={
+                "scores": [round(h.score, 4) for h in results.points],
+                "threshold": self._score_threshold,
+            },
+        )
+        hits: list[dict] = []
+        for hit in results.points:
+            if not (hit.payload and "chunk_text" in hit.payload):
+                continue
+            # 相关性门控：低于阈值视为无关，丢弃（全丢→返回空→上层如实回"无相关内容"）
+            if self._score_threshold and hit.score < self._score_threshold:
+                continue
+            hits.append(
+                {
+                    "text": hit.payload["chunk_text"],
+                    "document_id": hit.payload.get("document_id", ""),
+                    "filename": hit.payload.get("filename", ""),
+                }
+            )
+        return hits
 
     def count(self, user_id: str | None = None) -> int:
         from qdrant_client.models import Filter, FieldCondition, MatchValue
@@ -127,6 +153,7 @@ def get_vector_store(settings) -> VectorStore:
             collection=settings.qdrant_collection,
             vector_size=settings.vector_size,
             timeout=settings.qdrant_timeout,
+            score_threshold=settings.retrieval_score_threshold,
         )
     return _instance
 
