@@ -144,6 +144,9 @@ export default function ChatPage() {
                 s.step === ev.step ? { ...s, status: ev.status, result: ev.result } : s,
               ),
             }));
+          } else if (ev.type === "token") {
+            // 逐 token 追加：answer 从 null 变为增长中的字符串（打字机效果）
+            updateLast((t) => ({ ...t, answer: (t.answer ?? "") + ev.text }));
           } else if (ev.type === "final") {
             if (ev.session_id) {
               sessionRef.current = ev.session_id;

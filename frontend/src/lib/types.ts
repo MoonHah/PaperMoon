@@ -114,6 +114,7 @@ export interface AgentRunResponse {
 export type AgentStreamEvent =
   | { type: "step_start"; step: number; action: string; detail: string }
   | { type: "step_result"; step: number | null; status: string; result: string }
+  | { type: "token"; text: string }
   | {
       type: "final";
       final_answer: string;
