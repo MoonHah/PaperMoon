@@ -3,6 +3,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 import app.agent.graph_agent as graph_agent
+import app.agent.tools as agent_tools   # 工具实现：patch 它即可影响 tool_defs 里的 @tool 包装
 from app.agent.graph_agent import build_agent_graph
 from app.agent.schemas import AgentRunRequest, CitedChunk
 
@@ -106,7 +107,7 @@ def test_run_recovers_citations_from_search(monkeypatch):
         CitedChunk(text="片段B", document_id="d1", filename="a.pdf"),
         CitedChunk(text="片段A", document_id="d1", filename="a.pdf"),  # 重复 → 应被去重
     ]
-    monkeypatch.setattr(graph_agent._impl, "search_documents", lambda q, **kw: fake_chunks)
+    monkeypatch.setattr(agent_tools, "search_documents", lambda q, **kw: fake_chunks)
 
     # LLM：第一步发起 search_documents 工具调用，第二步给最终答案
     fake = GenericFakeChatModel(messages=iter([
@@ -144,7 +145,7 @@ def test_run_marks_tool_error_status(monkeypatch):
     def _boom(*a, **kw):
         raise RuntimeError("检索炸了")
 
-    monkeypatch.setattr(graph_agent._impl, "search_documents", _boom)
+    monkeypatch.setattr(agent_tools, "search_documents", _boom)
 
     fake = GenericFakeChatModel(messages=iter([
         AIMessage(
