@@ -1,10 +1,8 @@
-import json
 import logging
 from typing import cast
 
 import openai
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
 from openai.types.chat import ChatCompletionMessageParam
 from tenacity import (
     before_sleep_log,
@@ -61,30 +59,6 @@ def generate(request: GenerateRequest) -> GenerateResponse:
         logger.error("generate.failed", extra={"error": type(e).__name__})
         raise HTTPException(status_code=502, detail=f"LLM call failed: {type(e).__name__}")
 
-
-@router.post("/generate/stream")
-def generate_stream(request: GenerateRequest) -> StreamingResponse:
-    def sse_gen():
-        try:
-            stream = _client.chat.completions.create(
-                model=settings.llm_model,
-                messages=cast(
-                    list[ChatCompletionMessageParam],
-                    [{"role": m.role, "content": m.content} for m in request.messages],
-                ),
-                timeout=settings.llm_timeout,
-                stream=True,
-            )
-            for chunk in stream:
-                delta = chunk.choices[0].delta.content
-                if delta:
-                    yield f"data: {json.dumps({'token': delta})}\n\n"
-            yield "data: [DONE]\n\n"
-        except Exception as e:
-            logger.error("generate_stream.failed", extra={"error": type(e).__name__})
-            yield f"data: {json.dumps({'error': type(e).__name__})}\n\n"
-
-    return StreamingResponse(sse_gen(), media_type="text/event-stream")
 
 @router.post("/embed", response_model=EmbedResponse)
 def embed(request: EmbedRequest) -> EmbedResponse:

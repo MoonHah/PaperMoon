@@ -1,6 +1,4 @@
-import json
 import logging
-from collections.abc import Iterator
 from typing import Any, Protocol
 
 import httpx
@@ -20,13 +18,12 @@ _RAG_SYSTEM_PROMPT = (
 class LLMClient(Protocol):
     """LLM 客户端契约。
 
-    chat / stream_chat 面向 RAG 问答（自带上下文约束）；
+    chat 面向 RAG 问答（自带上下文约束）；
     complete 是不带任何框架的通用文本生成，供查询改写、HyDE 等场景使用。
     complete 的 temperature 默认 0.0 求可复现；调用方可显式调高以获取多样性。
     """
 
     def chat(self, query: str, context_chunks: list[str]) -> str: ...
-    def stream_chat(self, query: str, context_chunks: list[str]) -> Iterator[str]: ...
     def complete(self, prompt: str, temperature: float = 0.0) -> str: ...
 
 
@@ -39,11 +36,6 @@ class MockLLMService:
             for i, chunk in enumerate(context_chunks)
         )
         return f"[MOCK] Query: {query}\n\nRetrieved context:\n\n{context}"
-
-    def stream_chat(self, query: str, context_chunks: list[str]) -> Iterator[str]:
-        full = self.chat(query, context_chunks)
-        for word in full.split(" "):
-            yield word + " "
 
     def complete(self, prompt: str, temperature: float = 0.0) -> str:
         # mock 不做真实生成，返回空串 —— 让上层（HyDE / MultiQuery）自动降级
@@ -104,25 +96,6 @@ class OpenAILLMService:
         )
 
 
-    def stream_chat(self, query: str, context_chunks: list[str]) -> Iterator[str]:
-        # 流式逐 token yield，与 _create 的一次性返回结构不同，单独保留。
-        # 刻意不走 openai_retry：流式中途无法安全重放已发出的 token；瞬时故障由
-        # ResilientLLMService 在首 token 处捕获并整体切到 fallback（mock），而非这里重试。
-        context = "\n\n---\n\n".join(context_chunks)
-        stream = self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": _RAG_SYSTEM_PROMPT},
-                {"role": "user", "content": f"上下文：\n{context}\n\n问题: {query}"},
-            ],
-            timeout=self._timeout,
-            stream=True,
-        )
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
-
     def complete(self, prompt: str, temperature: float = 0.0) -> str:
         # 通用文本生成：单条 user message，不套任何 RAG system prompt
         return self._create([{"role": "user", "content": prompt}], temperature=temperature)
@@ -159,33 +132,6 @@ class RemoteLLMService:
             ]
         )
 
-    def stream_chat(self, query: str, context_chunks: list[str]) -> Iterator[str]:
-        from app.core.logging import get_request_id
-
-        context = "\n\n---\n\n".join(context_chunks)
-        with self._client.stream(
-            "POST",
-            f"{self._base_url}/generate/stream",
-            json={
-                "messages": [
-                    {"role": "system", "content": _RAG_SYSTEM_PROMPT},
-                    {"role": "user", "content": f"上下文：\n{context}\n\n问题: {query}"},
-                ]
-            },
-            headers={"X-Request-ID": get_request_id()},
-        ) as resp:
-            resp.raise_for_status()
-            for line in resp.iter_lines():
-                if not line.startswith("data: "):
-                    continue
-                data = line[len("data: "):]
-                if data == "[DONE]":
-                    break
-                payload = json.loads(data)
-                if "error" in payload:
-                    raise RuntimeError(f"model-service stream error: {payload['error']}")
-                yield payload["token"]
-
     def complete(self, prompt: str, temperature: float = 0.0) -> str:
         # 通用文本生成：单条 user message，不套 RAG system prompt
         return self._generate([{"role": "user", "content": prompt}], temperature=temperature)
@@ -211,27 +157,6 @@ class ResilientLLMService:
                 get_request_id(),
             )
             return self._fallback.chat(query, context_chunks)
-
-    def stream_chat(self, query: str, context_chunks: list[str]) -> Iterator[str]:
-        from app.core.logging import get_request_id
-
-        try:
-            # 初始化迭代器（此时未触发实际请求）
-            primary_iter = self._primary.stream_chat(query, context_chunks)
-            # next() 触发真实网络请求，若 primary 有问题大概率在此处抛出
-            first_token = next(primary_iter)
-        except Exception as e:
-            logger.warning(
-                "Primary stream_chat failed, switching to fallback. "
-                "error=%s request_id=%s",
-                type(e).__name__,
-                get_request_id(),
-            )
-            yield from self._fallback.stream_chat(query, context_chunks)
-            return
-
-        yield first_token
-        yield from primary_iter
 
     def complete(self, prompt: str, temperature: float = 0.0) -> str:
         from app.core.logging import get_request_id
