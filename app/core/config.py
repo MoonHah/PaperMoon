@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # Embedding
     embedding_mode: str = "mock"         # "mock" | "openai"
     embedding_model: str = "text-embedding-3-small"
+    # 索引时批量嵌入的子批大小：一次请求嵌入多少个 chunk（OpenAI embeddings 接口支持一次传一组）。
+    # 调大减少请求数/提速，但受单请求 token 上限约束，128 是稳妥值。
+    embedding_batch_size: int = 128
 
     # Retrieval strategy
     retrieval_mode: str = "simple"       # "simple" | "multi_query" | "hyde"

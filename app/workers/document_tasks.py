@@ -78,7 +78,7 @@ def process_document(self, document_id: str) -> dict:
         db.commit()
         _log_status("EMBEDDING")
         embedding_client = get_embedding_service(settings)
-        embeddings = [embedding_client.embed(chunk) for chunk in chunks]
+        embeddings = embedding_client.embed_batch(chunks)   # 批量嵌入：一次请求多条，减少调用数/提速
 
         document_repository.update_status(db, document_id, DocumentStatus.INDEXING)
         db.commit()
