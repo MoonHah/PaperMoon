@@ -38,16 +38,21 @@ from app.services.vector_store import get_vector_store
 
 COL_W = 46
 
-_JUDGE_PROMPT = """你是严格的 RAG 答案质量评审。根据[问题]、[助手答案]、[检索到的来源]评分。
+_JUDGE_PROMPT = """你是严格的答案质量评审。根据[问题]、[助手答案]、[检索到的来源]、[问题类型]评分。
 只输出一个 JSON 对象，不要任何解释或多余文字，格式：
-{{"groundedness": <1-5整数>, "relevance": <1-5整数>, "correct_out_of_corpus": <true|false|null>}}
+{{"groundedness": <1-5整数>, "relevance": <1-5整数>, "correct_behavior": <true|false|null>}}
 
 评分维度：
 - groundedness：答案是否严格基于[来源]、无编造。来源为空时此项填 3（不适用）。
 - relevance：答案是否切题、回应了问题。
-- correct_out_of_corpus：仅当本题是「库外问题」(类型={qtype})时评判——
-  答案是否正确地「说明文档库中没有相关内容，并把后续内容标注为通用知识」；
-  若是库内问题则填 null。
+- correct_behavior：按[问题类型]判定该轮行为是否符合预期——
+    in_corpus（库内）：填 null（由 groundedness/relevance 衡量即可）。
+    out_of_corpus（库外知识型，如「什么是 X」）：正确 = 明确说明「文档库中没有相关内容」，
+      并把后续内容标注为通用知识。
+    general_task（通用任务型，如「写一段代码」）：正确 = 作为通用助手完成任务，
+      且标注这是通用知识/非来自文档（不要求出现「文档库无相关」字样）。
+
+[问题类型] {qtype}
 
 [问题]
 {question}
@@ -113,17 +118,18 @@ def _summarize(rows: list[tuple[str, str, dict | None]]) -> None:
 
     ground = _vals("groundedness", "in_corpus")
     rel = _vals("relevance")
-    oo = [s["correct_out_of_corpus"] for q, t, s in rows
-          if s is not None and t == "out_of_corpus" and s.get("correct_out_of_corpus") is not None]
+    # 库外知识型 + 通用任务型：均由 correct_behavior 衡量「行为是否符合该类型预期」
+    behavior = [s["correct_behavior"] for q, t, s in rows
+                if s is not None and s.get("correct_behavior") is not None]
 
     print("\n" + "-" * (COL_W + 12))
     print(f"已评分 {sum(1 for _, _, s in rows if s is not None)}/{len(rows)} 题")
     if ground:
-        print(f"Groundedness (库内) : mean={sum(ground) / len(ground):.2f} / 5")
+        print(f"Groundedness (库内)      : mean={sum(ground) / len(ground):.2f} / 5")
     if rel:
-        print(f"Relevance (全部)    : mean={sum(rel) / len(rel):.2f} / 5")
-    if oo:
-        print(f"库外正确拒答率      : {sum(oo)}/{len(oo)} = {sum(oo) / len(oo):.1%}")
+        print(f"Relevance (全部)         : mean={sum(rel) / len(rel):.2f} / 5")
+    if behavior:
+        print(f"行为正确率 (库外+任务)   : {sum(behavior)}/{len(behavior)} = {sum(behavior) / len(behavior):.1%}")
     print("-" * (COL_W + 12))
 
 
