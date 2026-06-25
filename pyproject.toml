@@ -49,3 +49,7 @@ packages = ["app"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+# 只收主应用的 tests/：model_service 是独立子项目（自带 app 包 + 自己的 pytest 配置），
+# 在它自己目录下 `cd model_service && pytest` 跑。否则裸 `pytest` 会同时扫两套 tests/，
+# 二者都被解析成模块名 tests.conftest → ImportPathMismatchError（CI 隐患）。
+testpaths = ["tests"]
