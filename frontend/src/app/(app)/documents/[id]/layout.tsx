@@ -6,6 +6,7 @@ import { useParams, usePathname } from "next/navigation";
 import { ArrowLeft, BookOpen, Boxes, NotebookPen } from "lucide-react";
 import { getDocument } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SelectionAsk } from "@/components/selection-ask";
 
 // 文档工作区：返回 + 标题 + 标签页（阅读/笔记），内容由嵌套路由渲染。
 export default function DocumentWorkspaceLayout({
@@ -76,6 +77,9 @@ export default function DocumentWorkspaceLayout({
       </nav>
 
       <div className="mt-6">{children}</div>
+
+      {/* 划词追问：选中正文 → 浮出「问 AI」→ 带选区跳对话页 */}
+      <SelectionAsk />
     </div>
   );
 }

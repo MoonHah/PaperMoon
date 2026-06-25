@@ -20,6 +20,7 @@ import { CitationCards } from "@/components/citation-card";
 import { Markdown } from "@/components/markdown";
 import { ChatSidebar } from "@/components/chat-sidebar";
 import { ChatScope } from "@/components/chat-scope";
+import { ASK_STORAGE_KEY } from "@/components/selection-ask";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -69,6 +70,15 @@ export default function ChatPage() {
   useEffect(() => {
     refreshList();
   }, [refreshList]);
+
+  // 划词追问：阅读页选中文字跳来时，sessionStorage 带着选区 → 预填成可直接发送的提问
+  useEffect(() => {
+    const picked = sessionStorage.getItem(ASK_STORAGE_KEY);
+    if (picked) {
+      setInput(`请解释这段内容：「${picked}」`);
+      sessionStorage.removeItem(ASK_STORAGE_KEY);
+    }
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
