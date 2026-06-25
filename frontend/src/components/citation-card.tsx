@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { BookOpen } from "lucide-react";
 import type { CitedChunk } from "@/lib/types";
 
 // 把检索片段清洗成简短预览：去表格边框/分隔线(-----)、竖线、折叠空白再截断——
@@ -13,7 +15,7 @@ function preview(text: string): string {
 }
 
 // 检索引用片段：默认折叠（点开看来源），每条显示清洗后的简短预览 + 文件名。
-// 与"推理轨迹"同款折叠样式，避免大段原始 chunk 占据视线。
+// 整条可点 → 跳到该文档的阅读页（缝合"对话 → 阅读原文"）。
 export function CitationCards({ citations }: { citations: CitedChunk[] }) {
   if (citations.length === 0) return null;
 
@@ -24,15 +26,20 @@ export function CitationCards({ citations }: { citations: CitedChunk[] }) {
       </summary>
       <div className="space-y-2 border-t border-border p-3">
         {citations.map((c, i) => (
-          <div
+          <Link
             key={`${c.document_id}-${i}`}
-            className="rounded-sm border-l-2 border-primary bg-card px-3 py-2"
+            href={`/documents/${c.document_id}/read`}
+            className="group block rounded-sm border-l-2 border-primary bg-card px-3 py-2 transition-colors hover:bg-accent"
           >
             <p className="line-clamp-2 text-sm text-foreground">{preview(c.text)}</p>
-            <p className="mt-1 font-mono text-caption-mono-sm uppercase text-muted-foreground">
-              {c.filename}
+            <p className="mt-1 flex items-center gap-1 font-mono text-caption-mono-sm uppercase text-muted-foreground">
+              <BookOpen className="h-3 w-3 shrink-0" aria-hidden />
+              <span className="truncate">{c.filename}</span>
+              <span className="ml-auto shrink-0 normal-case opacity-0 transition-opacity group-hover:opacity-100">
+                打开原文
+              </span>
             </p>
-          </div>
+          </Link>
         ))}
       </div>
     </details>
