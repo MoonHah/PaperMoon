@@ -37,6 +37,10 @@ services:
   # ── 应用服务（共用同一份镜像，command 不同）─────────────────────
 
   model-service:
+    # 按需启用：仅当 LLM_BACKEND/EMBEDDING_BACKEND=remote 时才需要。
+    # 默认 backend=local（直连 OpenAI），故归入 remote profile，普通 `docker compose up` 不启动；
+    # 需要远程后端时用 `docker compose --profile remote up`。
+    profiles: ["remote"]
     build:
       context: ./model_service
       dockerfile: Dockerfile
@@ -83,8 +87,7 @@ services:
         condition: service_started
       qdrant:
         condition: service_started
-      model-service:
-        condition: service_healthy
+    # 不依赖 model-service：默认 backend=local 不调它；remote 模式下用 --profile remote 一起起。
 
   worker:
     build: .
@@ -110,8 +113,7 @@ services:
         condition: service_started
       qdrant:
         condition: service_started
-      model-service:
-        condition: service_healthy
+    # 同 api：默认不依赖 model-service（backend=local）。
 
 # ── 具名卷声明 ──────────────────────────────────────────────────
 
