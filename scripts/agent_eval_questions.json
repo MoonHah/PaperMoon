@@ -1,0 +1,22 @@
+[
+  {
+    "question": "金融分析报告中，领涨全球股市的板块是哪个？涨幅大约多少？",
+    "type": "in_corpus",
+    "note": "金融分析报告.PDF —— 应基于文档准确回答"
+  },
+  {
+    "question": "GLM-PC v1.1 具备哪些能力？",
+    "type": "in_corpus",
+    "note": "AI_DEV.MD —— 应基于文档准确回答"
+  },
+  {
+    "question": "什么是检索增强生成（RAG）？",
+    "type": "out_of_corpus",
+    "note": "库里没有 —— 应说明文档库无相关内容，再以标注的通用知识作答"
+  },
+  {
+    "question": "帮我用 Python 写一个快速排序函数。",
+    "type": "out_of_corpus",
+    "note": "通用助手场景 —— 应标注「以下为通用知识，非来自你的文档」后作答"
+  }
+]
